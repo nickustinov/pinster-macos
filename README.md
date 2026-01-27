@@ -2,6 +2,10 @@
 
 A lightweight macOS menu bar application for quick access to pinned websites.
 
+## Download
+
+Download the latest release from [Releases](https://github.com/nickustinov/itsyweb-macos/releases).
+
 ## What it does
 
 Itsyweb lives in your menu bar and lets you open frequently used websites in floating popover windows. No need to switch to a browser — just click the menu bar icon or use a keyboard shortcut.
@@ -18,37 +22,45 @@ Features:
 ## Requirements
 
 - macOS 13 or later
-- Swift 5.9 or later (for building)
 
-## Building
+## Installation
 
-```bash
-# Build release binary
-swift build --configuration release
-
-# The binary will be at .build/release/itsyweb
-```
-
-To create an app bundle, you can wrap the binary in a standard macOS `.app` structure with the included `Info.plist`.
+1. Download `Itsyweb-x.x.x.dmg` from Releases
+2. Open the DMG and drag Itsyweb to Applications
+3. Launch from Applications — it appears as an icon in your menu bar
 
 ## Usage
 
-1. Run the app — it appears as a ✳ icon in your menu bar
-2. Click the icon to see your pinned sites
-3. Click a site to open it in a popover window
-4. Use ⌘, to open settings and manage your sites
+1. Click the menu bar icon to see your pinned sites
+2. Click a site to open it in a popover window
+3. Click Settings to manage your sites
 
-### Default shortcut
+### Default sites
 
-By default, Claude.ai is pinned with a triple-tap Option (⌥⌥⌥) shortcut.
+- **Claude** — triple-tap Option (⌥⌥⌥)
+- **ChatGPT** — no shortcut
+- **Gmail** — ⇧⌘G (mobile view)
 
 ### Adding sites
 
-1. Open Settings (⌘,)
-2. Click the + button
+1. Open Settings
+2. Click the + button in the Pinned sites header
 3. Enter the site name and URL
 4. Optionally record a keyboard shortcut
 5. Click Save
+
+## Building from source
+
+```bash
+# Build release
+./scripts/build-release.sh
+
+# Output: dist/Itsyweb.app and dist/Itsyweb-1.0.0.dmg
+```
+
+Requirements for building:
+- Swift 5.9 or later
+- Xcode Command Line Tools
 
 ## Architecture
 
@@ -62,15 +74,6 @@ Sources/
 ├── WebViewController.swift # WKWebView with resize handle
 └── HotkeyManager.swift     # Global hotkey registration (Carbon Events)
 ```
-
-## Dependencies
-
-None — uses only standard macOS frameworks:
-- Cocoa
-- SwiftUI
-- WebKit
-- Carbon.HIToolbox
-- ServiceManagement
 
 ## License
 

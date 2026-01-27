@@ -34,7 +34,7 @@ class SettingsStore: ObservableObject {
         if pinnedSites.isEmpty {
             pinnedSites = [
                 PinnedSite(
-                    name: "claude.ai",
+                    name: "Claude",
                     url: "https://claude.ai",
                     shortcut: "⌥⌥⌥",
                     shortcutKeys: ShortcutKeys(modifiers: 0, keyCode: 0, isTripleTap: true, tapModifier: "option"),

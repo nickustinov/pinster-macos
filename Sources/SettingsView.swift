@@ -7,81 +7,85 @@ struct SettingsView: View {
     @State private var editingSite: PinnedSite?
 
     var body: some View {
-        Form {
-            Section {
-                Toggle("Open at login", isOn: $store.launchAtLogin)
-            }
+        VStack(spacing: 0) {
+            Form {
+                Section {
+                    Toggle("Open at login", isOn: $store.launchAtLogin)
+                }
 
-            Section {
-                ForEach(store.pinnedSites) { site in
-                    HStack {
-                        Image(systemName: site.useMobileUserAgent ? "iphone" : "globe")
-                            .foregroundStyle(.secondary)
-                            .frame(width: 20)
-
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(site.name)
-                                .fontWeight(.medium)
-                            Text(site.url)
-                                .font(.caption)
+                Section {
+                    ForEach(store.pinnedSites) { site in
+                        HStack {
+                            Image(systemName: site.useMobileUserAgent ? "iphone" : "globe")
                                 .foregroundStyle(.secondary)
+                                .frame(width: 20)
+
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(site.name)
+                                    .fontWeight(.medium)
+                                Text(site.url)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+
+                            Spacer()
+
+                            if !site.shortcut.isEmpty {
+                                Text(site.shortcut)
+                                    .font(.system(.body, design: .monospaced))
+                                    .foregroundStyle(.secondary)
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 4)
+                                    .background(.quaternary)
+                                    .cornerRadius(6)
+                            }
+
+                            Button {
+                                store.removeSite(id: site.id)
+                            } label: {
+                                Image(systemName: "xmark")
+                                    .font(.system(size: 11, weight: .medium))
+                                    .foregroundStyle(.secondary)
+                            }
+                            .buttonStyle(.borderless)
                         }
-
-                        Spacer()
-
-                        if !site.shortcut.isEmpty {
-                            Text(site.shortcut)
-                                .font(.system(.body, design: .monospaced))
-                                .foregroundStyle(.secondary)
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 4)
-                                .background(.quaternary)
-                                .cornerRadius(6)
-                        }
-
-                        Button {
+                        .padding(.vertical, 4)
+                        .contentShape(Rectangle())
+                        .onTapGesture {
                             editingSite = site
-                        } label: {
-                            Image(systemName: "pencil")
                         }
-                        .buttonStyle(.borderless)
-
-                        Button(role: .destructive) {
-                            store.removeSite(id: site.id)
+                    }
+                } header: {
+                    HStack {
+                        Text("Pinned sites")
+                        Spacer()
+                        Button {
+                            showingAddSite = true
                         } label: {
-                            Image(systemName: "minus.circle.fill")
-                                .foregroundStyle(.red)
+                            Image(systemName: "plus.circle.fill")
+                                .font(.system(size: 16))
                         }
                         .buttonStyle(.borderless)
                     }
-                    .padding(.vertical, 4)
                 }
-
-                Button {
-                    showingAddSite = true
-                } label: {
-                    Label("Add site", systemImage: "plus")
-                }
-            } header: {
-                Text("Pinned sites")
             }
+            .formStyle(.grouped)
 
-            Section {
-                HStack {
-                    Text("Itsyweb \(appVersion)")
-                        .foregroundStyle(.secondary)
-                    Text("·")
-                        .foregroundStyle(.tertiary)
-                    Link("GitHub", destination: URL(string: githubURL)!)
-                        .foregroundStyle(.secondary)
-                }
-                .font(.caption)
-                .frame(maxWidth: .infinity)
+            Divider()
+
+            HStack {
+                Text("Itsyweb \(appVersion)")
+                    .foregroundStyle(.secondary)
+                Text("·")
+                    .foregroundStyle(.tertiary)
+                Link("GitHub", destination: URL(string: githubURL)!)
+                    .foregroundStyle(.secondary)
             }
+            .font(.caption)
+            .padding(.vertical, 10)
         }
-        .formStyle(.grouped)
         .frame(width: 450)
-        .frame(minHeight: 300)
+        .frame(minHeight: 420)
         .sheet(isPresented: $showingAddSite) {
             AddEditSiteView(site: nil) { newSite in
                 store.addSite(newSite)

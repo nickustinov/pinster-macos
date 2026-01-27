@@ -95,12 +95,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             let item = NSMenuItem(title: site.name, action: #selector(openSite(_:)), keyEquivalent: "")
             item.representedObject = site
 
-            if let keys = site.shortcutKeys, !keys.isTripleTap {
-                let modifiers = NSEvent.ModifierFlags(rawValue: keys.modifiers)
-                item.keyEquivalentModifierMask = modifiers
-                if let char = keyCodeToCharacter(keys.keyCode)?.lowercased() {
-                    item.keyEquivalent = char
-                }
+            if !site.shortcut.isEmpty {
+                let attributed = NSMutableAttributedString(string: "\(site.name)  \(site.shortcut)")
+                let shortcutRange = NSRange(location: site.name.count + 2, length: site.shortcut.count)
+                attributed.addAttribute(.foregroundColor, value: NSColor.tertiaryLabelColor, range: shortcutRange)
+                item.attributedTitle = attributed
             }
 
             menu.addItem(item)
@@ -110,15 +109,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             menu.addItem(.separator())
         }
 
-        let settingsItem = NSMenuItem(title: "Settings...", action: #selector(openSettings), keyEquivalent: ",")
-        settingsItem.keyEquivalentModifierMask = .command
-        menu.addItem(settingsItem)
-
+        menu.addItem(NSMenuItem(title: "Settings...", action: #selector(openSettings), keyEquivalent: ""))
         menu.addItem(.separator())
-
-        let quitItem = NSMenuItem(title: "Quit itsyweb", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
-        quitItem.keyEquivalentModifierMask = .command
-        menu.addItem(quitItem)
+        menu.addItem(NSMenuItem(title: "Quit Itsyweb", action: #selector(NSApplication.terminate(_:)), keyEquivalent: ""))
 
         statusItem.menu = menu
     }
