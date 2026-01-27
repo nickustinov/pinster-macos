@@ -2,6 +2,8 @@
 
 A lightweight macOS menu bar application for quick access to pinned websites.
 
+![Itsyweb screenshot](Assets/screenshot.png)
+
 ## Download
 
 Download the latest release from [Releases](https://github.com/nickustinov/itsyweb-macos/releases).

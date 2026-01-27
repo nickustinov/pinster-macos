@@ -2,7 +2,7 @@ import Cocoa
 import SwiftUI
 import Carbon.HIToolbox
 
-class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
+class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSWindowDelegate {
     private var statusItem: NSStatusItem!
     private var popover: NSPopover!
     private var currentWebViewController: WebViewController?
@@ -163,10 +163,38 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             settingsWindow = window
         }
 
+        setupMainMenu()
         popover.performClose(nil)
         NSApp.setActivationPolicy(.regular)
-        NSApp.activate(ignoringOtherApps: true)
+        settingsWindow?.delegate = self
         settingsWindow?.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
+    private func setupMainMenu() {
+        let mainMenu = NSMenu()
+
+        // App menu
+        let appMenu = NSMenu()
+        appMenu.addItem(NSMenuItem(title: "Quit Itsyweb", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
+        let appMenuItem = NSMenuItem()
+        appMenuItem.submenu = appMenu
+        mainMenu.addItem(appMenuItem)
+
+        // Edit menu (enables Cmd+C, Cmd+V, Cmd+A, etc.)
+        let editMenu = NSMenu(title: "Edit")
+        editMenu.addItem(NSMenuItem(title: "Undo", action: Selector(("undo:")), keyEquivalent: "z"))
+        editMenu.addItem(NSMenuItem(title: "Redo", action: Selector(("redo:")), keyEquivalent: "Z"))
+        editMenu.addItem(.separator())
+        editMenu.addItem(NSMenuItem(title: "Cut", action: #selector(NSText.cut(_:)), keyEquivalent: "x"))
+        editMenu.addItem(NSMenuItem(title: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c"))
+        editMenu.addItem(NSMenuItem(title: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v"))
+        editMenu.addItem(NSMenuItem(title: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a"))
+        let editMenuItem = NSMenuItem()
+        editMenuItem.submenu = editMenu
+        mainMenu.addItem(editMenuItem)
+
+        NSApp.mainMenu = mainMenu
     }
 
     // MARK: - Hotkey Callbacks
@@ -221,6 +249,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         popover.contentViewController = currentWebViewController
         popover.contentSize = site.windowSize
 
+        NSApp.setActivationPolicy(.regular)
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
         NSApp.activate(ignoringOtherApps: true)
 
@@ -233,6 +262,15 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
 
     func popoverDidClose(_ notification: Notification) {
         stopClickOutsideMonitor()
+        if settingsWindow?.isVisible != true {
+            NSApp.setActivationPolicy(.accessory)
+        }
+    }
+
+    func windowWillClose(_ notification: Notification) {
+        if (notification.object as? NSWindow) == settingsWindow {
+            NSApp.setActivationPolicy(.accessory)
+        }
     }
 
     private func startClickOutsideMonitor() {
