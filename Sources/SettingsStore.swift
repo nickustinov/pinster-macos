@@ -34,11 +34,23 @@ class SettingsStore: ObservableObject {
         if pinnedSites.isEmpty {
             pinnedSites = [
                 PinnedSite(
-                    name: "Claude",
+                    name: "claude.ai",
                     url: "https://claude.ai",
                     shortcut: "⌥⌥⌥",
                     shortcutKeys: ShortcutKeys(modifiers: 0, keyCode: 0, isTripleTap: true, tapModifier: "option"),
                     useMobileUserAgent: false
+                ),
+                PinnedSite(
+                    name: "ChatGPT",
+                    url: "https://chatgpt.com",
+                    useMobileUserAgent: false
+                ),
+                PinnedSite(
+                    name: "Gmail",
+                    url: "https://mail.google.com",
+                    shortcut: "⇧⌘G",
+                    shortcutKeys: ShortcutKeys(modifiers: NSEvent.ModifierFlags([.shift, .command]).rawValue, keyCode: 5, isTripleTap: false, tapModifier: nil),
+                    useMobileUserAgent: true
                 )
             ]
         }
