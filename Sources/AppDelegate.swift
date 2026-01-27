@@ -164,7 +164,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             let hostingController = NSHostingController(rootView: SettingsView())
             let window = NSWindow(contentViewController: hostingController)
             window.title = "Settings"
-            window.styleMask = [.titled, .closable]
+            window.styleMask = [.titled, .closable, .resizable]
             window.center()
             window.setFrameAutosaveName("SettingsWindow")
             settingsWindow = window

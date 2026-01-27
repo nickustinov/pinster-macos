@@ -1,5 +1,8 @@
 import Cocoa
 
+let appVersion = "1.0.0"
+let githubURL = "https://github.com/nickustinov/itsyweb-macos"
+
 struct PinnedSite: Identifiable, Codable, Equatable {
     let id: UUID
     var name: String

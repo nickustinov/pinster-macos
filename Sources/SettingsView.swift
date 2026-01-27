@@ -65,9 +65,23 @@ struct SettingsView: View {
             } header: {
                 Text("Pinned sites")
             }
+
+            Section {
+                HStack {
+                    Text("Itsyweb \(appVersion)")
+                        .foregroundStyle(.secondary)
+                    Text("·")
+                        .foregroundStyle(.tertiary)
+                    Link("GitHub", destination: URL(string: githubURL)!)
+                        .foregroundStyle(.secondary)
+                }
+                .font(.caption)
+                .frame(maxWidth: .infinity)
+            }
         }
         .formStyle(.grouped)
-        .frame(width: 450, height: 400)
+        .frame(width: 450)
+        .frame(minHeight: 300)
         .sheet(isPresented: $showingAddSite) {
             AddEditSiteView(site: nil) { newSite in
                 store.addSite(newSite)
