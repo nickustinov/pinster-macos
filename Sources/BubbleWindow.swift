@@ -55,6 +55,14 @@ class BubbleWindow: NSWindow {
             defer: false
         )
 
+        // Load saved window size
+        if let savedWidth = site.windowWidth {
+            expandedWidth = savedWidth
+        }
+        if let savedHeight = site.windowHeight {
+            expandedHeight = savedHeight
+        }
+
         level = .floating
         backgroundColor = .clear
         isOpaque = false
@@ -233,6 +241,9 @@ class BubbleWindow: NSWindow {
         setFrame(newFrame, display: true)
 
         bubbleContentView.frame = NSRect(origin: .zero, size: NSSize(width: clampedWidth, height: clampedHeight))
+
+        // Save size for persistence
+        SettingsStore.shared.updateSiteSize(id: site.id, size: NSSize(width: clampedWidth, height: clampedHeight))
     }
 
     private func setupTrackingArea() {
