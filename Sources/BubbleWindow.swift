@@ -10,6 +10,7 @@ class BubbleWindow: NSWindow {
 
     let site: PinnedSite
     private(set) var isExpanded = false
+    private(set) var isPinned = false
     private var isAnimating = false
     private var currentPosition: CGFloat
     private var snapshotImage: NSImage?
@@ -300,7 +301,7 @@ class BubbleWindow: NSWindow {
     }
 
     private func checkMousePosition() {
-        guard isExpanded && !isAnimating && !isDragging else {
+        guard isExpanded && !isAnimating && !isDragging && !isPinned else {
             collapseTimer?.invalidate()
             collapseTimer = nil
             return
@@ -314,9 +315,10 @@ class BubbleWindow: NSWindow {
             if collapseTimer == nil {
                 collapseTimer = Timer.scheduledTimer(withTimeInterval: BubbleWindow.hoverDelay, repeats: false) { [weak self] _ in
                     self?.collapseTimer = nil
-                    // Double-check mouse is still outside
+                    // Double-check mouse is still outside and not pinned
+                    guard let self = self, !self.isPinned else { return }
                     let currentMouse = NSEvent.mouseLocation
-                    if let self = self, !self.frame.insetBy(dx: -10, dy: -10).contains(currentMouse) {
+                    if !self.frame.insetBy(dx: -10, dy: -10).contains(currentMouse) {
                         self.collapse()
                     }
                 }
@@ -458,9 +460,28 @@ class BubbleWindow: NSWindow {
                 self.bubbleContentView.showWebView(webView)
             }
 
+            self.setupTitleBarCallbacks()
             self.setupResizeHandles()
             self.startMonitors()
             self.activateAndFocus()
+        }
+    }
+
+    private func setupTitleBarCallbacks() {
+        guard let titleBar = bubbleContentView.titleBar else { return }
+
+        titleBar.isPinned = isPinned
+
+        titleBar.onPinToggle = { [weak self] pinned in
+            self?.isPinned = pinned
+        }
+
+        titleBar.onDrag = { [weak self] deltaX, deltaY in
+            guard let self = self else { return }
+            var newOrigin = self.frame.origin
+            newOrigin.x += deltaX
+            newOrigin.y += deltaY
+            self.setFrameOrigin(newOrigin)
         }
     }
 
@@ -541,6 +562,7 @@ class BubbleWindow: NSWindow {
 
     private func performCollapse() {
         isExpanded = false
+        isPinned = false
 
         let edge = SettingsStore.shared.preferredBubbleEdge
 

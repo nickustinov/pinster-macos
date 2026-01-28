@@ -1,9 +1,94 @@
 import Cocoa
 
+class BubbleTitleBar: NSView {
+    static let height: CGFloat = 28
+
+    private let pinButton: NSButton
+    var isPinned: Bool = false {
+        didSet {
+            updatePinButton()
+        }
+    }
+    var onPinToggle: ((Bool) -> Void)?
+    var onDrag: ((CGFloat, CGFloat) -> Void)?
+
+    private var isDragging = false
+    private var dragStartLocation: NSPoint = .zero
+
+    override init(frame: NSRect) {
+        pinButton = NSButton(frame: .zero)
+        super.init(frame: frame)
+
+        wantsLayer = true
+        layer?.backgroundColor = NSColor.windowBackgroundColor.withAlphaComponent(0.95).cgColor
+
+        setupPinButton()
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    private func setupPinButton() {
+        pinButton.bezelStyle = .accessoryBarAction
+        pinButton.isBordered = false
+        pinButton.image = NSImage(systemSymbolName: "pin", accessibilityDescription: "Pin")
+        pinButton.imagePosition = .imageOnly
+        pinButton.target = self
+        pinButton.action = #selector(pinTapped)
+        pinButton.translatesAutoresizingMaskIntoConstraints = false
+
+        addSubview(pinButton)
+
+        NSLayoutConstraint.activate([
+            pinButton.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -8),
+            pinButton.centerYAnchor.constraint(equalTo: centerYAnchor),
+            pinButton.widthAnchor.constraint(equalToConstant: 24),
+            pinButton.heightAnchor.constraint(equalToConstant: 24)
+        ])
+
+        updatePinButton()
+    }
+
+    private func updatePinButton() {
+        let symbolName = isPinned ? "pin.fill" : "pin"
+        pinButton.image = NSImage(systemSymbolName: symbolName, accessibilityDescription: "Pin")
+        pinButton.contentTintColor = isPinned ? .controlAccentColor : .secondaryLabelColor
+    }
+
+    @objc private func pinTapped() {
+        isPinned.toggle()
+        onPinToggle?(isPinned)
+    }
+
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool {
+        return true
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        dragStartLocation = NSEvent.mouseLocation
+        isDragging = true
+    }
+
+    override func mouseDragged(with event: NSEvent) {
+        guard isDragging else { return }
+        let currentLocation = NSEvent.mouseLocation
+        let deltaX = currentLocation.x - dragStartLocation.x
+        let deltaY = currentLocation.y - dragStartLocation.y
+        dragStartLocation = currentLocation
+        onDrag?(deltaX, deltaY)
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        isDragging = false
+    }
+}
+
 class BubbleContentView: NSView {
     private let snapshotImageView: NSImageView
     private let faviconImageView: NSImageView
     private let webViewContainer: NSView
+    private(set) var titleBar: BubbleTitleBar?
 
     override init(frame: NSRect) {
         snapshotImageView = NSImageView(frame: NSRect(origin: .zero, size: frame.size))
@@ -62,6 +147,7 @@ class BubbleContentView: NSView {
         snapshotImageView.isHidden = false
         faviconImageView.isHidden = true
         webViewContainer.isHidden = true
+        hideTitleBar()
     }
 
     func showFavicon(_ image: NSImage?) {
@@ -69,11 +155,20 @@ class BubbleContentView: NSView {
         faviconImageView.isHidden = false
         snapshotImageView.isHidden = true
         webViewContainer.isHidden = true
+        hideTitleBar()
     }
 
     func showWebView(_ webView: NSView) {
-        // Update container to match our bounds
-        webViewContainer.frame = bounds
+        showTitleBar()
+
+        // Update container to leave room for title bar
+        let titleHeight = BubbleTitleBar.height
+        webViewContainer.frame = NSRect(
+            x: 0,
+            y: 0,
+            width: bounds.width,
+            height: bounds.height - titleHeight
+        )
 
         webView.frame = webViewContainer.bounds
         webView.autoresizingMask = [.width, .height]
@@ -84,6 +179,26 @@ class BubbleContentView: NSView {
         snapshotImageView.isHidden = true
         faviconImageView.isHidden = true
         webViewContainer.isHidden = false
+    }
+
+    private func showTitleBar() {
+        if titleBar == nil {
+            let titleHeight = BubbleTitleBar.height
+            let bar = BubbleTitleBar(frame: NSRect(
+                x: 0,
+                y: bounds.height - titleHeight,
+                width: bounds.width,
+                height: titleHeight
+            ))
+            bar.autoresizingMask = [.width, .minYMargin]
+            addSubview(bar)
+            titleBar = bar
+        }
+        titleBar?.isHidden = false
+    }
+
+    private func hideTitleBar() {
+        titleBar?.isHidden = true
     }
 
     func getWebViewContainer() -> NSView {
