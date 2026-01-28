@@ -2,7 +2,7 @@
 
 A lightweight macOS menu bar application for quick access to pinned websites.
 
-![Pinster demo](Assets/demo.gif)
+![Pinster demo](Assets/demo-v2.gif)
 
 ## Download
 
