@@ -1,6 +1,5 @@
 import Cocoa
 import SwiftUI
-import Carbon.HIToolbox
 
 class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSWindowDelegate {
     private var statusItem: NSStatusItem!
@@ -9,6 +8,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSWindowD
     private var currentSite: PinnedSite?
     private var clickOutsideMonitor: Any?
     private var settingsWindow: NSWindow?
+    private var defaultMenuBarIcon: NSImage?
 
     // MARK: - App Lifecycle
 
@@ -37,53 +37,51 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSWindowD
     private func setupStatusItem() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
 
+        defaultMenuBarIcon = createMenuBarIcon()
         if let button = statusItem.button {
-            button.image = createMenuBarIcon()
+            button.image = defaultMenuBarIcon
         }
 
         rebuildMenu()
     }
 
     private func createMenuBarIcon() -> NSImage {
+        // Try to load from bundle first (for release builds)
+        if let bundlePath = Bundle.main.path(forResource: "MenuBarIcon", ofType: "png"),
+           let image = NSImage(contentsOfFile: bundlePath) {
+            image.isTemplate = true
+            image.size = NSSize(width: 18, height: 18)
+            return image
+        }
+
+        // Fallback: load from Assets folder (for development)
+        let devPaths = [
+            FileManager.default.currentDirectoryPath + "/Assets/MenuBarIcon.png",
+            (ProcessInfo.processInfo.environment["PWD"] ?? "") + "/Assets/MenuBarIcon.png"
+        ]
+
+        for path in devPaths {
+            if let image = NSImage(contentsOfFile: path) {
+                image.isTemplate = true
+                image.size = NSSize(width: 18, height: 18)
+                return image
+            }
+        }
+
+        // Final fallback: simple pin shape
         let size = NSSize(width: 18, height: 18)
         let image = NSImage(size: size, flipped: false) { rect in
-            let scale: CGFloat = 18.0 / 256.0
-            let transform = NSAffineTransform()
-            transform.scale(by: scale)
-
             let path = NSBezierPath()
-            // Asterisk shape from SVG
-            path.move(to: NSPoint(x: 214.86, y: 256 - 180.12))
-            path.curve(to: NSPoint(x: 203.86, y: 256 - 182.86),
-                      controlPoint1: NSPoint(x: 214.86 - 2, y: 256 - 180.12 - 3),
-                      controlPoint2: NSPoint(x: 203.86 + 3, y: 256 - 182.86 + 1))
-
-            // Simplified: draw the asterisk using lines
-            let center = NSPoint(x: 128 * scale, y: 128 * scale)
-            let length: CGFloat = 88 * scale
-            let armWidth: CGFloat = 8 * scale
-
-            path.removeAllPoints()
-
-            // Draw 6-pointed asterisk
-            for i in 0..<6 {
-                let angle = CGFloat(i) * .pi / 3 - .pi / 2
-                let outer = NSPoint(
-                    x: center.x + cos(angle) * length,
-                    y: center.y + sin(angle) * length
-                )
-                path.move(to: center)
-                path.line(to: outer)
-            }
-
-            path.lineWidth = 3.0
+            path.move(to: NSPoint(x: 9, y: 2))
+            path.line(to: NSPoint(x: 9, y: 16))
+            path.move(to: NSPoint(x: 4, y: 12))
+            path.line(to: NSPoint(x: 14, y: 12))
+            path.lineWidth = 2.0
             path.lineCapStyle = .round
             NSColor.black.setStroke()
             path.stroke()
-
             return true
         }
-
         image.isTemplate = true
         return image
     }
@@ -114,35 +112,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSWindowD
         menu.addItem(NSMenuItem(title: "Quit Pinster", action: #selector(NSApplication.terminate(_:)), keyEquivalent: ""))
 
         statusItem.menu = menu
-    }
-
-    private func keyCodeToCharacter(_ keyCode: UInt16) -> String? {
-        let source = TISCopyCurrentKeyboardInputSource().takeRetainedValue()
-        guard let layoutData = TISGetInputSourceProperty(source, kTISPropertyUnicodeKeyLayoutData) else {
-            return nil
-        }
-        let dataRef = unsafeBitCast(layoutData, to: CFData.self)
-        let keyboardLayout = unsafeBitCast(CFDataGetBytePtr(dataRef), to: UnsafePointer<UCKeyboardLayout>.self)
-
-        var deadKeyState: UInt32 = 0
-        var chars = [UniChar](repeating: 0, count: 4)
-        var length: Int = 0
-
-        let result = UCKeyTranslate(
-            keyboardLayout,
-            keyCode,
-            UInt16(kUCKeyActionDown),
-            0,
-            UInt32(LMGetKbdType()),
-            OptionBits(kUCKeyTranslateNoDeadKeysBit),
-            &deadKeyState,
-            chars.count,
-            &length,
-            &chars
-        )
-
-        guard result == noErr && length > 0 else { return nil }
-        return String(utf16CodeUnits: chars, count: length)
     }
 
     // MARK: - Actions
@@ -211,6 +180,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSWindowD
         }
     }
 
+    func closePopover() {
+        popover.performClose(nil)
+    }
+
     // MARK: - Popover
 
     private func setupPopover() {
@@ -228,11 +201,16 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSWindowD
                 popover.performClose(nil)
                 return
             }
+            // Reset to default icon when switching sites
+            statusItem.button?.image = defaultMenuBarIcon
             currentWebViewController?.loadSite(site)
             popover.contentSize = site.windowSize
             currentSite = site
             return
         }
+
+        // Reset to default icon when opening popover
+        statusItem.button?.image = defaultMenuBarIcon
 
         if currentWebViewController == nil {
             currentWebViewController = WebViewController()
@@ -240,6 +218,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSWindowD
                 self?.popover.contentSize = newSize
                 if let siteId = self?.currentSite?.id {
                     SettingsStore.shared.updateSiteSize(id: siteId, size: newSize)
+                }
+            }
+            currentWebViewController?.onFaviconLoaded = { [weak self] favicon in
+                guard let self = self, self.popover.isShown else { return }
+                if let favicon = favicon {
+                    self.statusItem.button?.image = favicon
                 }
             }
         }
@@ -262,7 +246,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSWindowD
 
     func popoverDidClose(_ notification: Notification) {
         stopClickOutsideMonitor()
-        if settingsWindow?.isVisible != true {
+        // Restore default menu bar icon
+        statusItem.button?.image = defaultMenuBarIcon
+        // Don't switch to accessory if settings or auth window is visible
+        if settingsWindow?.isVisible != true && currentWebViewController?.hasAuthWindow != true {
             NSApp.setActivationPolicy(.accessory)
         }
     }

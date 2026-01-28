@@ -11,6 +11,7 @@ class HotkeyManager {
     private var modifierPressTimestamps: [String: [Date]] = [:]
     private let tripleTapWindow: TimeInterval = 0.5
     private var localEventMonitor: Any?
+    private var previousModifierFlags: NSEvent.ModifierFlags = []
 
     private init() {
         installCarbonHandler()
@@ -123,11 +124,17 @@ class HotkeyManager {
 
     private func handleFlagsChanged(_ event: NSEvent) {
         let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        defer { previousModifierFlags = flags }
 
+        // Only count key-down (modifier newly pressed, not released)
         var pressedModifier: String?
-        if flags == .option { pressedModifier = "option" }
-        else if flags == .control { pressedModifier = "control" }
-        else if flags == .shift { pressedModifier = "shift" }
+        if flags.contains(.option) && !previousModifierFlags.contains(.option) {
+            pressedModifier = "option"
+        } else if flags.contains(.control) && !previousModifierFlags.contains(.control) {
+            pressedModifier = "control"
+        } else if flags.contains(.shift) && !previousModifierFlags.contains(.shift) {
+            pressedModifier = "shift"
+        }
 
         guard let modifier = pressedModifier else { return }
 

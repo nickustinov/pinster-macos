@@ -94,10 +94,12 @@ class WebViewController: NSViewController, WKUIDelegate, WKNavigationDelegate {
     private var containerView: NSView!
     private var resizeHandle: ResizeHandleView!
     private var authWindow: NSWindow?
+    var hasAuthWindow: Bool { authWindow != nil }
     private var authWebView: WKWebView?
     private var currentHost: String?
 
     var onResize: ((NSSize) -> Void)?
+    var onFaviconLoaded: ((NSImage?) -> Void)?
 
     override func loadView() {
         containerView = NSView(frame: NSRect(x: 0, y: 0, width: 420, height: 650))
@@ -165,6 +167,8 @@ class WebViewController: NSViewController, WKUIDelegate, WKNavigationDelegate {
 
         // Only reload if switching to a different site
         if currentHost == newHost {
+            // Still fetch favicon for already-loaded site
+            fetchFavicon()
             return
         }
 
@@ -204,9 +208,20 @@ class WebViewController: NSViewController, WKUIDelegate, WKNavigationDelegate {
         window.center()
         window.isReleasedWhenClosed = false
 
+        // Close popover before showing auth window
+        if let appDelegate = NSApp.delegate as? AppDelegate {
+            appDelegate.closePopover()
+        }
+
         NSApp.setActivationPolicy(.regular)
-        NSApp.activate(ignoringOtherApps: true)
+        window.level = .floating
         window.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+
+        // Reset to normal level after a moment
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            window.level = .normal
+        }
 
         self.authWindow = window
         self.authWebView = authWebView
@@ -224,6 +239,7 @@ class WebViewController: NSViewController, WKUIDelegate, WKNavigationDelegate {
         authWindow?.close()
         authWindow = nil
         authWebView = nil
+        NSApp.setActivationPolicy(.accessory)
     }
 
     // MARK: - WKNavigationDelegate
@@ -237,6 +253,7 @@ class WebViewController: NSViewController, WKUIDelegate, WKNavigationDelegate {
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         if webView == self.webView {
             hideLoading()
+            fetchFavicon()
         }
 
         if webView == authWebView,
@@ -269,5 +286,37 @@ class WebViewController: NSViewController, WKUIDelegate, WKNavigationDelegate {
             return
         }
         decisionHandler(.allow)
+    }
+
+    // MARK: - Favicon
+
+    private func fetchFavicon() {
+        let js = """
+        (function() {
+            var link = document.querySelector("link[rel*='icon']");
+            if (link) return link.href;
+            return window.location.origin + '/favicon.ico';
+        })()
+        """
+
+        webView.evaluateJavaScript(js) { [weak self] result, error in
+            guard let urlString = result as? String,
+                  let url = URL(string: urlString) else {
+                self?.onFaviconLoaded?(nil)
+                return
+            }
+
+            URLSession.shared.dataTask(with: url) { data, response, error in
+                DispatchQueue.main.async {
+                    if let data = data, let image = NSImage(data: data) {
+                        image.size = NSSize(width: 18, height: 18)
+                        image.isTemplate = false
+                        self?.onFaviconLoaded?(image)
+                    } else {
+                        self?.onFaviconLoaded?(nil)
+                    }
+                }
+            }.resume()
+        }
     }
 }

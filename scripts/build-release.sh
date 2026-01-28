@@ -27,8 +27,9 @@ mkdir -p "$APP_BUNDLE/Contents/Resources"
 # Copy binary
 cp "$BUILD_DIR/pinster" "$APP_BUNDLE/Contents/MacOS/$APP_NAME"
 
-# Copy icon
+# Copy icons
 cp "Assets/AppIcon.icns" "$APP_BUNDLE/Contents/Resources/"
+cp "Assets/MenuBarIcon.png" "$APP_BUNDLE/Contents/Resources/"
 
 # Create Info.plist
 cat > "$APP_BUNDLE/Contents/Info.plist" << EOF
