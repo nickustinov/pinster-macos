@@ -18,6 +18,7 @@ Features:
 - **Global hotkeys** — Open sites with keyboard shortcuts (no Accessibility permission required)
 - **Triple-tap shortcuts** — Press a modifier key three times rapidly (e.g., ⌥⌥⌥)
 - **Resizable popovers** — Drag the corner to resize the window
+- **Favicon in menu bar** — Shows site favicon while popover is open
 - **Mobile view** — Render sites with a mobile user agent for compact layouts
 - **Launch at login** — Start automatically when you log in
 
