@@ -8,6 +8,7 @@ let package = Package(
         .executableTarget(
             name: "pinster",
             path: "Sources",
+            exclude: ["Info.plist", "pinster.entitlements"],
             linkerSettings: [
                 .unsafeFlags(["-Xlinker", "-sectcreate", "-Xlinker", "__TEXT", "-Xlinker", "__info_plist", "-Xlinker", "Sources/Info.plist"])
             ]
