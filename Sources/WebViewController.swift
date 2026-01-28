@@ -94,7 +94,6 @@ class WebViewController: NSViewController, WKUIDelegate, WKNavigationDelegate {
     private var containerView: NSView!
     private var resizeHandle: ResizeHandleView!
     private var authWindow: NSWindow?
-    var hasAuthWindow: Bool { authWindow != nil }
     private var authWebView: WKWebView?
     private var currentHost: String?
 
@@ -213,7 +212,6 @@ class WebViewController: NSViewController, WKUIDelegate, WKNavigationDelegate {
             appDelegate.closePopover()
         }
 
-        NSApp.setActivationPolicy(.regular)
         window.level = .floating
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
@@ -239,7 +237,6 @@ class WebViewController: NSViewController, WKUIDelegate, WKNavigationDelegate {
         authWindow?.close()
         authWindow = nil
         authWebView = nil
-        NSApp.setActivationPolicy(.accessory)
     }
 
     // MARK: - WKNavigationDelegate

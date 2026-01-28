@@ -1,7 +1,7 @@
 import Cocoa
 import SwiftUI
 
-class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSWindowDelegate {
+class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     private var statusItem: NSStatusItem!
     private var popover: NSPopover!
     private var currentWebViewController: WebViewController?
@@ -134,8 +134,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSWindowD
 
         setupMainMenu()
         popover.performClose(nil)
-        NSApp.setActivationPolicy(.regular)
-        settingsWindow?.delegate = self
         settingsWindow?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
     }
@@ -233,7 +231,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSWindowD
         popover.contentViewController = currentWebViewController
         popover.contentSize = site.windowSize
 
-        NSApp.setActivationPolicy(.regular)
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
         NSApp.activate(ignoringOtherApps: true)
 
@@ -246,18 +243,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSWindowD
 
     func popoverDidClose(_ notification: Notification) {
         stopClickOutsideMonitor()
-        // Restore default menu bar icon
         statusItem.button?.image = defaultMenuBarIcon
-        // Don't switch to accessory if settings or auth window is visible
-        if settingsWindow?.isVisible != true && currentWebViewController?.hasAuthWindow != true {
-            NSApp.setActivationPolicy(.accessory)
-        }
-    }
-
-    func windowWillClose(_ notification: Notification) {
-        if (notification.object as? NSWindow) == settingsWindow {
-            NSApp.setActivationPolicy(.accessory)
-        }
     }
 
     private func startClickOutsideMonitor() {
