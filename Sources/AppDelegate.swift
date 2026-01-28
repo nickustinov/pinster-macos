@@ -111,7 +111,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSWindowD
 
         menu.addItem(NSMenuItem(title: "Settings...", action: #selector(openSettings), keyEquivalent: ""))
         menu.addItem(.separator())
-        menu.addItem(NSMenuItem(title: "Quit Itsyweb", action: #selector(NSApplication.terminate(_:)), keyEquivalent: ""))
+        menu.addItem(NSMenuItem(title: "Quit Pinster", action: #selector(NSApplication.terminate(_:)), keyEquivalent: ""))
 
         statusItem.menu = menu
     }
@@ -176,7 +176,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSWindowD
 
         // App menu
         let appMenu = NSMenu()
-        appMenu.addItem(NSMenuItem(title: "Quit Itsyweb", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
+        appMenu.addItem(NSMenuItem(title: "Quit Pinster", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
         let appMenuItem = NSMenuItem()
         appMenuItem.submenu = appMenu
         mainMenu.addItem(appMenuItem)

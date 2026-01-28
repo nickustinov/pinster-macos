@@ -1,16 +1,16 @@
-# Itsyweb
+# Pinster
 
 A lightweight macOS menu bar application for quick access to pinned websites.
 
-![Itsyweb screenshot](Assets/screenshot.png)
+![Pinster screenshot](Assets/screenshot.png)
 
 ## Download
 
-Download the latest release from [Releases](https://github.com/nickustinov/itsyweb-macos/releases).
+Download the latest release from [Releases](https://github.com/nickustinov/pinster-macos/releases).
 
 ## What it does
 
-Itsyweb lives in your menu bar and lets you open frequently used websites in floating popover windows. No need to switch to a browser — just click the menu bar icon or use a keyboard shortcut.
+Pinster lives in your menu bar and lets you open frequently used websites in floating popover windows. No need to switch to a browser — just click the menu bar icon or use a keyboard shortcut.
 
 Features:
 - **Menu bar integration** — Always accessible from the status bar
@@ -27,8 +27,8 @@ Features:
 
 ## Installation
 
-1. Download `Itsyweb-x.x.x.dmg` from Releases
-2. Open the DMG and drag Itsyweb to Applications
+1. Download `Pinster-x.x.x.dmg` from Releases
+2. Open the DMG and drag Pinster to Applications
 3. Launch from Applications — it appears as an icon in your menu bar
 
 ## Usage
@@ -57,7 +57,7 @@ Features:
 # Build release
 ./scripts/build-release.sh
 
-# Output: dist/Itsyweb.app and dist/Itsyweb-1.0.0.dmg
+# Output: dist/Pinster.app and dist/Pinster-1.0.0.dmg
 ```
 
 Requirements for building:

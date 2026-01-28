@@ -74,7 +74,7 @@ struct SettingsView: View {
             Divider()
 
             HStack {
-                Text("Itsyweb \(appVersion)")
+                Text("Pinster \(appVersion)")
                     .foregroundStyle(.secondary)
                 Text("·")
                     .foregroundStyle(.tertiary)

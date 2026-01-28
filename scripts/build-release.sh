@@ -2,8 +2,8 @@
 set -e
 
 # Configuration
-APP_NAME="Itsyweb"
-BUNDLE_ID="com.itsyweb.app"
+APP_NAME="Pinster"
+BUNDLE_ID="com.pinster.app"
 TEAM_ID="R892A93W42"
 VERSION="1.0.0"
 
@@ -25,7 +25,7 @@ mkdir -p "$APP_BUNDLE/Contents/MacOS"
 mkdir -p "$APP_BUNDLE/Contents/Resources"
 
 # Copy binary
-cp "$BUILD_DIR/itsyweb" "$APP_BUNDLE/Contents/MacOS/$APP_NAME"
+cp "$BUILD_DIR/pinster" "$APP_BUNDLE/Contents/MacOS/$APP_NAME"
 
 # Copy icon
 cp "Assets/AppIcon.icns" "$APP_BUNDLE/Contents/Resources/"
@@ -75,7 +75,7 @@ if security find-identity -v -p codesigning | grep -q "Developer ID Application"
 
     echo "==> Signing app with: $SIGNING_IDENTITY"
     codesign --force --options runtime --sign "$SIGNING_IDENTITY" \
-        --entitlements "$PROJECT_DIR/Sources/itsyweb.entitlements" \
+        --entitlements "$PROJECT_DIR/Sources/pinster.entitlements" \
         "$APP_BUNDLE"
 
     echo "==> Creating DMG..."
