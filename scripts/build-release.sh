@@ -5,7 +5,7 @@ set -e
 APP_NAME="Pinster"
 BUNDLE_ID="com.pinster.app"
 TEAM_ID="R892A93W42"
-VERSION="1.0.0"
+VERSION="1.0.1"
 
 # Paths
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -16,8 +16,18 @@ DMG_PATH="$PROJECT_DIR/dist/$APP_NAME-$VERSION.dmg"
 
 cd "$PROJECT_DIR"
 
-echo "==> Building release binary..."
-swift build -c release
+echo "==> Building release binary for arm64..."
+swift build -c release --arch arm64
+
+echo "==> Building release binary for x86_64..."
+swift build -c release --arch x86_64
+
+echo "==> Creating universal binary..."
+mkdir -p "$BUILD_DIR"
+lipo -create \
+    "$PROJECT_DIR/.build/arm64-apple-macosx/release/pinster" \
+    "$PROJECT_DIR/.build/x86_64-apple-macosx/release/pinster" \
+    -output "$BUILD_DIR/pinster"
 
 echo "==> Creating app bundle..."
 rm -rf dist
