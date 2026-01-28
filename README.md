@@ -10,14 +10,17 @@ Download the latest release from [Releases](https://github.com/nickustinov/pinst
 
 ## What it does
 
-Pinster lives in your menu bar and lets you open frequently used websites in floating popover windows. No need to switch to a browser — just click the menu bar icon or use a keyboard shortcut.
+Pinster lives in your menu bar and lets you open frequently used websites in floating popover windows or as floating bubbles on the screen edge. No need to switch to a browser — just click the menu bar icon, hover over a bubble, or use a keyboard shortcut.
 
 Features:
-- **Menu bar integration** — Always accessible from the status bar
-- **Pinned sites** — Save your favorite websites for quick access
+- **Menu bar integration** — Access sites from the status bar dropdown
+- **Floating bubbles** — Pin sites as always-visible bubbles on screen edge (right or bottom)
+- **Hover to expand** — Bubbles expand to full window on hover, collapse when you move away
+- **Option-drag** — Reposition expanded floating windows by holding Option and dragging
+- **Favicon or preview** — Bubbles show site favicon or page preview (configurable)
 - **Global hotkeys** — Open sites with keyboard shortcuts (no Accessibility permission required)
 - **Triple-tap shortcuts** — Press a modifier key three times rapidly (e.g., ⌥⌥⌥)
-- **Resizable popovers** — Drag the corner to resize the window
+- **Resizable windows** — Drag any corner to resize
 - **Favicon in menu bar** — Shows site favicon while popover is open
 - **Mobile view** — Render sites with a mobile user agent for compact layouts
 - **Launch at login** — Start automatically when you log in
@@ -40,9 +43,8 @@ Features:
 
 ### Default sites
 
-- **Claude** — triple-tap Option (⌥⌥⌥)
-- **ChatGPT** — no shortcut
-- **Gmail** — ⇧⌘G (mobile view)
+- **Claude** — floating bubble, triple-tap Option (⌥⌥⌥)
+- **ChatGPT** — menu bar, triple-tap Command (⌘⌘⌘)
 
 ### Adding sites
 
@@ -58,7 +60,7 @@ Features:
 # Build release
 ./scripts/build-release.sh
 
-# Output: dist/Pinster.app and dist/Pinster-1.0.0.dmg
+# Output: dist/Pinster.app and dist/Pinster-1.1.0.dmg
 ```
 
 Requirements for building:
@@ -75,7 +77,10 @@ Sources/
 ├── SettingsStore.swift     # UserDefaults persistence
 ├── SettingsView.swift      # SwiftUI settings interface
 ├── WebViewController.swift # WKWebView with resize handle
-└── HotkeyManager.swift     # Global hotkey registration (Carbon Events)
+├── HotkeyManager.swift     # Global hotkey registration (Carbon Events)
+├── BubbleWindow.swift      # Floating bubble window
+├── BubbleContentView.swift # Bubble content (favicon/preview)
+└── BubbleManager.swift     # Manages all floating bubbles
 ```
 
 ## License

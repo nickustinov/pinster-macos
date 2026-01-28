@@ -3,6 +3,7 @@ import ServiceManagement
 
 extension Notification.Name {
     static let pinnedSitesChanged = Notification.Name("pinnedSitesChanged")
+    static let bubbleSettingsChanged = Notification.Name("bubbleSettingsChanged")
 }
 
 class SettingsStore: ObservableObject {
@@ -25,10 +26,28 @@ class SettingsStore: ObservableObject {
         }
     }
 
+    @Published var preferredBubbleEdge: BubbleEdge = .right {
+        didSet {
+            UserDefaults.standard.set(preferredBubbleEdge.rawValue, forKey: bubbleEdgeKey)
+            NotificationCenter.default.post(name: .bubbleSettingsChanged, object: nil)
+        }
+    }
+
+    @Published var showBubblePreviews: Bool = false {
+        didSet {
+            UserDefaults.standard.set(showBubblePreviews, forKey: bubblePreviewsKey)
+            NotificationCenter.default.post(name: .bubbleSettingsChanged, object: nil)
+        }
+    }
+
     private let sitesKey = "pinnedSites"
+    private let bubbleEdgeKey = "preferredBubbleEdge"
+    private let bubblePreviewsKey = "showBubblePreviews"
 
     private init() {
         loadSites()
+        loadBubbleEdge()
+        loadBubblePreviews()
         syncLaunchAtLoginStatus()
 
         if pinnedSites.isEmpty {
@@ -38,19 +57,16 @@ class SettingsStore: ObservableObject {
                     url: "https://claude.ai",
                     shortcut: "⌥⌥⌥",
                     shortcutKeys: ShortcutKeys(modifiers: 0, keyCode: 0, isTripleTap: true, tapModifier: "option"),
-                    useMobileUserAgent: false
+                    useMobileUserAgent: false,
+                    displayMode: .bubble
                 ),
                 PinnedSite(
                     name: "ChatGPT",
                     url: "https://chatgpt.com",
-                    useMobileUserAgent: false
-                ),
-                PinnedSite(
-                    name: "Gmail",
-                    url: "https://mail.google.com",
-                    shortcut: "⇧⌘G",
-                    shortcutKeys: ShortcutKeys(modifiers: NSEvent.ModifierFlags([.shift, .command]).rawValue, keyCode: 5, isTripleTap: false, tapModifier: nil),
-                    useMobileUserAgent: true
+                    shortcut: "⌘⌘⌘",
+                    shortcutKeys: ShortcutKeys(modifiers: 0, keyCode: 0, isTripleTap: true, tapModifier: "command"),
+                    useMobileUserAgent: false,
+                    displayMode: .menuBar
                 )
             ]
         }
@@ -71,6 +87,25 @@ class SettingsStore: ObservableObject {
     private func saveSites() {
         guard let data = try? JSONEncoder().encode(pinnedSites) else { return }
         UserDefaults.standard.set(data, forKey: sitesKey)
+    }
+
+    private func loadBubbleEdge() {
+        if let edgeString = UserDefaults.standard.string(forKey: bubbleEdgeKey),
+           let edge = BubbleEdge(rawValue: edgeString) {
+            preferredBubbleEdge = edge
+        }
+    }
+
+    private func loadBubblePreviews() {
+        if UserDefaults.standard.object(forKey: bubblePreviewsKey) != nil {
+            showBubblePreviews = UserDefaults.standard.bool(forKey: bubblePreviewsKey)
+        }
+    }
+
+    func updateBubblePosition(id: UUID, position: CGFloat) {
+        if let index = pinnedSites.firstIndex(where: { $0.id == id }) {
+            pinnedSites[index].bubblePosition = position
+        }
     }
 
     func addSite(_ site: PinnedSite) {

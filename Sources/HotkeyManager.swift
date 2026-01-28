@@ -134,6 +134,8 @@ class HotkeyManager {
             pressedModifier = "control"
         } else if flags.contains(.shift) && !previousModifierFlags.contains(.shift) {
             pressedModifier = "shift"
+        } else if flags.contains(.command) && !previousModifierFlags.contains(.command) {
+            pressedModifier = "command"
         }
 
         guard let modifier = pressedModifier else { return }

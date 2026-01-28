@@ -13,11 +13,15 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     // MARK: - App Lifecycle
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        setAppIcon()
         setupStatusItem()
         setupPopover()
 
         // Register global hotkeys
         HotkeyManager.shared.reregisterAll()
+
+        // Show bubbles for bubble-mode sites
+        BubbleManager.shared.showBubblesForSites()
 
         NotificationCenter.default.addObserver(
             self,
@@ -27,9 +31,31 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         )
     }
 
+    private func setAppIcon() {
+        // Prefer bundled icon (release builds), fall back to Assets for dev runs.
+        if let bundlePath = Bundle.main.path(forResource: "AppIcon", ofType: "icns"),
+           let image = NSImage(contentsOfFile: bundlePath) {
+            NSApp.applicationIconImage = image
+            return
+        }
+
+        let devPaths = [
+            FileManager.default.currentDirectoryPath + "/Assets/AppIcon.icns",
+            (ProcessInfo.processInfo.environment["PWD"] ?? "") + "/Assets/AppIcon.icns"
+        ]
+
+        for path in devPaths {
+            if let image = NSImage(contentsOfFile: path) {
+                NSApp.applicationIconImage = image
+                return
+            }
+        }
+    }
+
     @objc private func sitesChanged() {
         rebuildMenu()
         HotkeyManager.shared.reregisterAll()
+        BubbleManager.shared.showBubblesForSites()
     }
 
     // MARK: - Status Item & Menu
@@ -89,7 +115,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     private func rebuildMenu() {
         let menu = NSMenu()
 
-        for site in SettingsStore.shared.pinnedSites {
+        let menuBarSites = SettingsStore.shared.pinnedSites.filter { $0.displayMode == .menuBar }
+
+        for site in menuBarSites {
             let item = NSMenuItem(title: site.name, action: #selector(openSite(_:)), keyEquivalent: "")
             item.representedObject = site
 
@@ -103,7 +131,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             menu.addItem(item)
         }
 
-        if !SettingsStore.shared.pinnedSites.isEmpty {
+        if !menuBarSites.isEmpty {
             menu.addItem(.separator())
         }
 
@@ -134,8 +162,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
 
         setupMainMenu()
         popover.performClose(nil)
+        settingsWindow?.level = .floating
         settingsWindow?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
+            self?.settingsWindow?.level = .normal
+        }
     }
 
     private func setupMainMenu() {
@@ -167,14 +199,22 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     // MARK: - Hotkey Callbacks
 
     func openSiteFromHotkey(_ site: PinnedSite) {
-        showPopover(for: site)
+        if site.displayMode == .bubble {
+            BubbleManager.shared.expandBubble(for: site.id)
+        } else {
+            showPopover(for: site)
+        }
     }
 
     func toggleSiteFromHotkey(_ site: PinnedSite) {
-        if popover.isShown && currentSite?.id == site.id {
-            popover.performClose(nil)
+        if site.displayMode == .bubble {
+            BubbleManager.shared.toggleBubble(for: site.id)
         } else {
-            showPopover(for: site)
+            if popover.isShown && currentSite?.id == site.id {
+                popover.performClose(nil)
+            } else {
+                showPopover(for: site)
+            }
         }
     }
 

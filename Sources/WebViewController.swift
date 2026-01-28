@@ -1,6 +1,15 @@
 import Cocoa
 import WebKit
 
+// MARK: - Resize Corner Enum
+
+enum ResizeCorner {
+    case bottomLeft
+    case bottomRight
+    case topLeft
+    case topRight
+}
+
 // MARK: - Resize Handle View
 
 class ResizeHandleView: NSView {
@@ -9,7 +18,9 @@ class ResizeHandleView: NSView {
     private var initialMouseLocation: NSPoint = .zero
     private var initialSize: NSSize = .zero
 
+    var corner: ResizeCorner = .bottomRight
     var onResize: ((NSSize) -> Void)?
+    var onResizeWithCorner: ((CGFloat, CGFloat, ResizeCorner) -> Void)?
     var getCurrentSize: (() -> NSSize)?
 
     override init(frame: NSRect) {
@@ -25,7 +36,6 @@ class ResizeHandleView: NSView {
     override var acceptsFirstResponder: Bool { false }
 
     override func hitTest(_ point: NSPoint) -> NSView? {
-        // Only respond to clicks in our bounds, pass through everything else
         let localPoint = convert(point, from: superview)
         if bounds.contains(localPoint) {
             return super.hitTest(point)
@@ -41,8 +51,21 @@ class ResizeHandleView: NSView {
         let path = NSBezierPath()
         for i in 0..<3 {
             let offset = CGFloat(i) * 4 + 4
-            path.move(to: NSPoint(x: bounds.maxX - offset, y: bounds.minY + 2))
-            path.line(to: NSPoint(x: bounds.maxX - 2, y: bounds.minY + offset))
+
+            switch corner {
+            case .bottomRight:
+                path.move(to: NSPoint(x: bounds.maxX - offset, y: bounds.minY + 2))
+                path.line(to: NSPoint(x: bounds.maxX - 2, y: bounds.minY + offset))
+            case .bottomLeft:
+                path.move(to: NSPoint(x: bounds.minX + offset, y: bounds.minY + 2))
+                path.line(to: NSPoint(x: bounds.minX + 2, y: bounds.minY + offset))
+            case .topRight:
+                path.move(to: NSPoint(x: bounds.maxX - offset, y: bounds.maxY - 2))
+                path.line(to: NSPoint(x: bounds.maxX - 2, y: bounds.maxY - offset))
+            case .topLeft:
+                path.move(to: NSPoint(x: bounds.minX + offset, y: bounds.maxY - 2))
+                path.line(to: NSPoint(x: bounds.minX + 2, y: bounds.maxY - offset))
+            }
         }
         path.lineWidth = 1.5
         path.stroke()
@@ -59,10 +82,18 @@ class ResizeHandleView: NSView {
 
         let currentLocation = NSEvent.mouseLocation
         let deltaX = currentLocation.x - initialMouseLocation.x
-        let deltaY = initialMouseLocation.y - currentLocation.y
+        let deltaY = currentLocation.y - initialMouseLocation.y
 
+        // If using corner-based callback
+        if let onResizeWithCorner = onResizeWithCorner {
+            onResizeWithCorner(deltaX, deltaY, corner)
+            initialMouseLocation = currentLocation
+            return
+        }
+
+        // Legacy single-corner resize (bottom-right only)
         var newWidth = initialSize.width + deltaX
-        var newHeight = initialSize.height + deltaY
+        var newHeight = initialSize.height - deltaY
 
         newWidth = max(minSize.width, newWidth)
         newHeight = max(minSize.height, newHeight)
@@ -76,10 +107,16 @@ class ResizeHandleView: NSView {
 
     override func resetCursorRects() {
         super.resetCursorRects()
-        addCursorRect(bounds, cursor: .crosshair)
+        let cursor: NSCursor
+        switch corner {
+        case .bottomLeft, .topRight:
+            cursor = NSCursor(image: NSCursor.crosshair.image, hotSpot: NSPoint(x: 8, y: 8))
+        case .bottomRight, .topLeft:
+            cursor = NSCursor(image: NSCursor.crosshair.image, hotSpot: NSPoint(x: 8, y: 8))
+        }
+        addCursorRect(bounds, cursor: cursor)
     }
 
-    // Don't intercept scroll events
     override func scrollWheel(with event: NSEvent) {
         nextResponder?.scrollWheel(with: event)
     }
@@ -150,7 +187,12 @@ class WebViewController: NSViewController, WKUIDelegate, WKNavigationDelegate {
     }
 
     func makeWebViewFirstResponder() {
-        view.window?.makeFirstResponder(webView)
+        guard let window = view.window else { return }
+        window.makeFirstResponder(webView)
+    }
+
+    func getWebView() -> WKWebView {
+        return webView
     }
 
     func loadSite(_ site: PinnedSite) {

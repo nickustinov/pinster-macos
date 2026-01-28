@@ -5,7 +5,7 @@ set -e
 APP_NAME="Pinster"
 BUNDLE_ID="com.pinster.app"
 TEAM_ID="R892A93W42"
-VERSION="1.0.2"
+VERSION="1.1.0"
 
 # Paths
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"

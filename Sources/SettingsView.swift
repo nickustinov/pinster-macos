@@ -13,10 +13,19 @@ struct SettingsView: View {
                     Toggle("Open at login", isOn: $store.launchAtLogin)
                 }
 
+                Section("Floating bubbles") {
+                    Picker("Screen edge", selection: $store.preferredBubbleEdge) {
+                        Text("Right").tag(BubbleEdge.right)
+                        Text("Bottom").tag(BubbleEdge.bottom)
+                    }
+                    Toggle("Show page previews", isOn: $store.showBubblePreviews)
+                        .help("When off, bubbles show site favicon instead")
+                }
+
                 Section {
                     ForEach(store.pinnedSites) { site in
                         HStack {
-                            Image(systemName: site.useMobileUserAgent ? "iphone" : "globe")
+                            Image(systemName: iconName(for: site))
                                 .foregroundStyle(.secondary)
                                 .frame(width: 20)
 
@@ -100,6 +109,13 @@ struct SettingsView: View {
             store.syncLaunchAtLoginStatus()
         }
     }
+
+    private func iconName(for site: PinnedSite) -> String {
+        if site.displayMode == .bubble {
+            return "circle.fill"
+        }
+        return site.useMobileUserAgent ? "iphone" : "globe"
+    }
 }
 
 // MARK: - Add/Edit Site View
@@ -114,6 +130,7 @@ struct AddEditSiteView: View {
     @State private var shortcut: String = ""
     @State private var shortcutKeys: ShortcutKeys?
     @State private var useMobileUserAgent: Bool = false
+    @State private var displayMode: DisplayMode = .menuBar
 
     var body: some View {
         VStack(spacing: 0) {
@@ -122,6 +139,12 @@ struct AddEditSiteView: View {
                 TextField("URL", text: $url)
 
                 ShortcutRecorderView(shortcut: $shortcut, shortcutKeys: $shortcutKeys)
+
+                Picker("Display mode", selection: $displayMode) {
+                    Text("Menu bar").tag(DisplayMode.menuBar)
+                    Text("Floating bubble").tag(DisplayMode.bubble)
+                }
+                .pickerStyle(.segmented)
 
                 Toggle("Use mobile view", isOn: $useMobileUserAgent)
                     .help("Uses iPhone user agent for compact mobile layouts")
@@ -155,6 +178,7 @@ struct AddEditSiteView: View {
                 shortcut = site.shortcut
                 shortcutKeys = site.shortcutKeys
                 useMobileUserAgent = site.useMobileUserAgent
+                displayMode = site.displayMode
             }
         }
     }
@@ -168,7 +192,9 @@ struct AddEditSiteView: View {
             shortcutKeys: shortcutKeys,
             useMobileUserAgent: useMobileUserAgent,
             windowWidth: site?.windowWidth,
-            windowHeight: site?.windowHeight
+            windowHeight: site?.windowHeight,
+            displayMode: displayMode,
+            bubblePosition: site?.bubblePosition
         )
         onSave(newSite)
     }
@@ -276,6 +302,7 @@ class ShortcutRecorderNSView: NSView {
                 if flags == .option { modifier = "option" }
                 else if flags == .control { modifier = "control" }
                 else if flags == .shift { modifier = "shift" }
+                else if flags == .command { modifier = "command" }
 
                 if let mod = modifier {
                     let now = Date()
@@ -284,7 +311,14 @@ class ShortcutRecorderNSView: NSView {
 
                     if self.tripleTapTimestamps.count >= 3 {
                         self.tripleTapTimestamps.removeAll()
-                        let symbol = mod == "option" ? "⌥" : mod == "control" ? "⌃" : "⇧"
+                        let symbol: String
+                        switch mod {
+                        case "option": symbol = "⌥"
+                        case "control": symbol = "⌃"
+                        case "shift": symbol = "⇧"
+                        case "command": symbol = "⌘"
+                        default: symbol = "?"
+                        }
                         let keys = ShortcutKeys(modifiers: 0, keyCode: 0, isTripleTap: true, tapModifier: mod)
                         self.onShortcutRecorded?(keys, "\(symbol)\(symbol)\(symbol)")
                         return nil

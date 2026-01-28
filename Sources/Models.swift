@@ -1,6 +1,6 @@
 import Cocoa
 
-let appVersion = "1.0.0"
+let appVersion = "1.1.0"
 let githubURL = "https://github.com/nickustinov/pinster-macos"
 
 struct PinnedSite: Identifiable, Codable, Equatable {
@@ -12,8 +12,10 @@ struct PinnedSite: Identifiable, Codable, Equatable {
     var useMobileUserAgent: Bool
     var windowWidth: Double?
     var windowHeight: Double?
+    var displayMode: DisplayMode
+    var bubblePosition: CGFloat?
 
-    init(id: UUID = UUID(), name: String, url: String, shortcut: String = "", shortcutKeys: ShortcutKeys? = nil, useMobileUserAgent: Bool = false, windowWidth: Double? = nil, windowHeight: Double? = nil) {
+    init(id: UUID = UUID(), name: String, url: String, shortcut: String = "", shortcutKeys: ShortcutKeys? = nil, useMobileUserAgent: Bool = false, windowWidth: Double? = nil, windowHeight: Double? = nil, displayMode: DisplayMode = .menuBar, bubblePosition: CGFloat? = nil) {
         self.id = id
         self.name = name
         self.url = url
@@ -22,6 +24,22 @@ struct PinnedSite: Identifiable, Codable, Equatable {
         self.useMobileUserAgent = useMobileUserAgent
         self.windowWidth = windowWidth
         self.windowHeight = windowHeight
+        self.displayMode = displayMode
+        self.bubblePosition = bubblePosition
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        name = try container.decode(String.self, forKey: .name)
+        url = try container.decode(String.self, forKey: .url)
+        shortcut = try container.decode(String.self, forKey: .shortcut)
+        shortcutKeys = try container.decodeIfPresent(ShortcutKeys.self, forKey: .shortcutKeys)
+        useMobileUserAgent = try container.decode(Bool.self, forKey: .useMobileUserAgent)
+        windowWidth = try container.decodeIfPresent(Double.self, forKey: .windowWidth)
+        windowHeight = try container.decodeIfPresent(Double.self, forKey: .windowHeight)
+        displayMode = try container.decodeIfPresent(DisplayMode.self, forKey: .displayMode) ?? .menuBar
+        bubblePosition = try container.decodeIfPresent(CGFloat.self, forKey: .bubblePosition)
     }
 
     var userAgent: String {
@@ -41,4 +59,14 @@ struct ShortcutKeys: Codable, Equatable {
     var keyCode: UInt16
     var isTripleTap: Bool
     var tapModifier: String?
+}
+
+enum DisplayMode: String, Codable, CaseIterable {
+    case menuBar
+    case bubble
+}
+
+enum BubbleEdge: String, Codable, CaseIterable {
+    case right
+    case bottom
 }
