@@ -94,7 +94,7 @@ struct SettingsView: View {
             .padding(.vertical, 10)
         }
         .frame(width: 450)
-        .frame(minHeight: 420)
+        .frame(minHeight: 550)
         .sheet(isPresented: $showingAddSite) {
             AddEditSiteView(site: nil) { newSite in
                 store.addSite(newSite)

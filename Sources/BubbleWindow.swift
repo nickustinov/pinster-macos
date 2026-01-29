@@ -236,17 +236,17 @@ class BubbleWindow: NSPanel {
             newHeight = currentHeight + deltaY
         }
 
-        // Clamp to min/max
-        let clampedWidth = max(minSize.width, min(maxSize.width, newWidth))
-        let clampedHeight = max(minSize.height, min(maxSize.height, newHeight))
+        // Clamp to min/max and round to avoid subpixel gaps
+        let clampedWidth = round(max(minSize.width, min(maxSize.width, newWidth)))
+        let clampedHeight = round(max(minSize.height, min(maxSize.height, newHeight)))
 
         expandedWidth = clampedWidth
         expandedHeight = clampedHeight
 
-        let newFrame = NSRect(origin: newOrigin, size: NSSize(width: clampedWidth, height: clampedHeight))
+        let newFrame = NSIntegralRect(NSRect(origin: newOrigin, size: NSSize(width: clampedWidth, height: clampedHeight)))
         setFrame(newFrame, display: true)
 
-        bubbleContentView.frame = NSRect(origin: .zero, size: NSSize(width: clampedWidth, height: clampedHeight))
+        bubbleContentView.frame = NSIntegralRect(NSRect(origin: .zero, size: NSSize(width: clampedWidth, height: clampedHeight)))
 
         // Save size for persistence
         SettingsStore.shared.updateSiteSize(id: site.id, size: NSSize(width: clampedWidth, height: clampedHeight))
@@ -635,7 +635,7 @@ class BubbleWindow: NSPanel {
             origin.y = visibleFrame.origin.y
         }
 
-        return NSRect(origin: origin, size: size)
+        return NSIntegralRect(NSRect(origin: origin, size: size))
     }
 
     private func calculateExpandedFrame(edge: BubbleEdge, position: CGFloat) -> NSRect {
@@ -658,7 +658,7 @@ class BubbleWindow: NSPanel {
             origin.x = max(visibleFrame.origin.x, min(origin.x, visibleFrame.maxX - size.width))
         }
 
-        return NSRect(origin: origin, size: size)
+        return NSIntegralRect(NSRect(origin: origin, size: size))
     }
 
     func prepareForRemoval() {

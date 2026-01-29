@@ -174,14 +174,14 @@ class BubbleContentView: NSView {
     func showWebView(_ webView: NSView) {
         showTitleBar()
 
-        // Update container to leave room for title bar
+        // Update container to leave room for title bar (use integral rect to avoid subpixel gaps)
         let titleHeight = BubbleTitleBar.height
-        webViewContainer.frame = NSRect(
+        webViewContainer.frame = NSIntegralRect(NSRect(
             x: 0,
             y: 0,
             width: bounds.width,
             height: bounds.height - titleHeight
-        )
+        ))
 
         webView.frame = webViewContainer.bounds
         webView.autoresizingMask = [.width, .height]
