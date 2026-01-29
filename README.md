@@ -43,8 +43,8 @@ Features:
 
 ### Default sites
 
-- **Claude** — floating bubble, triple-tap Option (⌥⌥⌥)
-- **ChatGPT** — menu bar, triple-tap Command (⌘⌘⌘)
+- **Claude** — menu bar, triple-tap Option (⌥⌥⌥)
+- **ChatGPT** — floating bubble, triple-tap Command (⌘⌘⌘)
 
 ### Adding sites
 
@@ -60,7 +60,7 @@ Features:
 # Build release
 ./scripts/build-release.sh
 
-# Output: dist/Pinster.app and dist/Pinster-1.1.0.dmg
+# Output: dist/Pinster.app and dist/Pinster-x.x.x.dmg
 ```
 
 Requirements for building:

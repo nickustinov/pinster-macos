@@ -152,13 +152,17 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     @objc private func openSettings() {
         if settingsWindow == nil {
             let hostingController = NSHostingController(rootView: SettingsView())
-            let window = NSWindow(contentViewController: hostingController)
-            window.title = "Settings"
-            window.styleMask = [.titled, .closable, .resizable]
-            window.center()
-            window.setFrameAutosaveName("SettingsWindow")
-            settingsWindow = window
+            let panel = NSPanel(contentViewController: hostingController)
+            panel.title = "Settings"
+            panel.styleMask = [.titled, .closable, .resizable, .nonactivatingPanel]
+            panel.center()
+            panel.setFrameAutosaveName("SettingsWindow")
+            panel.hidesOnDeactivate = false
+            settingsWindow = panel
         }
+
+        // Allow keyboard input without showing dock icon
+        settingsWindow?.perform(Selector(("_setPreventsActivation:")), with: NSNumber(value: false))
 
         setupMainMenu()
         popover.performClose(nil)
@@ -300,4 +304,5 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             clickOutsideMonitor = nil
         }
     }
+
 }

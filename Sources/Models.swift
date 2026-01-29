@@ -1,6 +1,6 @@
 import Cocoa
 
-let appVersion = "1.1.0"
+let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "unknown"
 let githubURL = "https://github.com/nickustinov/pinster-macos"
 
 struct PinnedSite: Identifiable, Codable, Equatable {
@@ -70,3 +70,4 @@ enum BubbleEdge: String, Codable, CaseIterable {
     case right
     case bottom
 }
+

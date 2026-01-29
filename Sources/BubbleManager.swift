@@ -101,7 +101,7 @@ class BubbleManager {
             expanded.collapse()
         }
         expandedBubble = bubble
-        setActivationPolicyForBubble(expanded: true)
+        // Note: activation is now handled per-window via _setPreventsActivation
     }
 
     func expandBubble(for siteId: UUID) {
@@ -130,27 +130,7 @@ class BubbleManager {
         if expandedBubble === bubble {
             expandedBubble = nil
         }
-        setActivationPolicyForBubble(expanded: false)
-    }
-
-    private func setActivationPolicyForBubble(expanded: Bool) {
-        if expanded {
-            if NSApp.activationPolicy() != .regular {
-                NSApp.setActivationPolicy(.regular)
-                setAppIcon()
-            }
-            return
-        }
-
-        // Keep regular policy if any visible titled window is open (e.g., Settings)
-        let hasVisibleTitledWindow = NSApp.windows.contains { window in
-            window.isVisible && window.styleMask.contains(.titled)
-        }
-        guard !hasVisibleTitledWindow else { return }
-
-        if NSApp.activationPolicy() == .regular {
-            NSApp.setActivationPolicy(.accessory)
-        }
+        // Note: activation is now handled per-window via _setPreventsActivation
     }
 
     private func setAppIcon() {

@@ -1,7 +1,7 @@
 import Cocoa
 import WebKit
 
-class BubbleWindow: NSWindow {
+class BubbleWindow: NSPanel {
     static let collapsedSize = NSSize(width: 60, height: 60)
     static let expandedSize = NSSize(width: 420, height: 650)
     private static let hoverDelay: TimeInterval = 0.4
@@ -36,6 +36,11 @@ class BubbleWindow: NSWindow {
     override var canBecomeMain: Bool { true }
     override var acceptsFirstResponder: Bool { true }
 
+    /// Use private API to control whether panel prevents app activation
+    private func setPreventsActivation(_ prevents: Bool) {
+        perform(Selector(("_setPreventsActivation:")), with: NSNumber(value: prevents))
+    }
+
     override func becomeKey() {
         super.becomeKey()
         // When window becomes key, focus the webview
@@ -50,7 +55,7 @@ class BubbleWindow: NSWindow {
 
         super.init(
             contentRect: NSRect(origin: .zero, size: BubbleWindow.collapsedSize),
-            styleMask: .borderless,
+            styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
         )
@@ -67,6 +72,7 @@ class BubbleWindow: NSWindow {
         backgroundColor = .clear
         isOpaque = false
         hasShadow = true
+        hidesOnDeactivate = false
         collectionBehavior = [.canJoinAllSpaces, .stationary]
 
         bubbleContentView = BubbleContentView(frame: NSRect(origin: .zero, size: BubbleWindow.collapsedSize))
@@ -447,6 +453,9 @@ class BubbleWindow: NSWindow {
 
         if webViewController == nil {
             webViewController = WebViewController()
+            webViewController?.onThemeColorDetected = { [weak self] color in
+                self?.bubbleContentView.titleBar?.updateBackgroundColor(color)
+            }
         }
         webViewController?.loadSite(site)
 
@@ -497,14 +506,12 @@ class BubbleWindow: NSWindow {
     }
 
     private func activateAndFocus() {
-        // Ensure the app is a foreground app so key events route here
-        if NSApp.activationPolicy() != .regular {
-            NSApp.setActivationPolicy(.regular)
-        }
+        // Allow activation temporarily to receive keyboard events
+        setPreventsActivation(false)
+
+        // Activate app and make window key
         NSRunningApplication.current.activate(options: [.activateIgnoringOtherApps, .activateAllWindows])
         NSApp.activate(ignoringOtherApps: true)
-
-        // Make window key
         makeKeyAndOrderFront(nil)
 
         // Focus webview
@@ -547,6 +554,9 @@ class BubbleWindow: NSWindow {
         collapseTimer = nil
         stopMonitors()
         removeResizeHandles()
+
+        // Re-enable prevents activation so dock icon doesn't show
+        setPreventsActivation(true)
 
         takeSnapshot { [weak self] in
             self?.performCollapse()

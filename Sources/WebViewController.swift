@@ -136,6 +136,7 @@ class WebViewController: NSViewController, WKUIDelegate, WKNavigationDelegate {
 
     var onResize: ((NSSize) -> Void)?
     var onFaviconLoaded: ((NSImage?) -> Void)?
+    var onThemeColorDetected: ((NSColor) -> Void)?
 
     override func loadView() {
         containerView = NSView(frame: NSRect(x: 0, y: 0, width: 420, height: 650))
@@ -238,32 +239,36 @@ class WebViewController: NSViewController, WKUIDelegate, WKNavigationDelegate {
         authWebView.uiDelegate = self
         authWebView.navigationDelegate = self
 
-        let window = NSWindow(
+        let panel = NSPanel(
             contentRect: NSRect(x: 0, y: 0, width: 500, height: 700),
-            styleMask: [.titled, .closable, .resizable],
+            styleMask: [.titled, .closable, .resizable, .nonactivatingPanel],
             backing: .buffered,
             defer: false
         )
-        window.contentView = authWebView
-        window.title = "Sign in"
-        window.center()
-        window.isReleasedWhenClosed = false
+        panel.contentView = authWebView
+        panel.title = "Sign in"
+        panel.center()
+        panel.isReleasedWhenClosed = false
+        panel.hidesOnDeactivate = false
 
         // Close popover before showing auth window
         if let appDelegate = NSApp.delegate as? AppDelegate {
             appDelegate.closePopover()
         }
 
-        window.level = .floating
-        window.makeKeyAndOrderFront(nil)
+        // Allow keyboard input without showing dock icon
+        panel.perform(Selector(("_setPreventsActivation:")), with: NSNumber(value: false))
+
+        panel.level = .floating
+        panel.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
 
         // Reset to normal level after a moment
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-            window.level = .normal
+            panel.level = .normal
         }
 
-        self.authWindow = window
+        self.authWindow = panel
         self.authWebView = authWebView
 
         return authWebView
@@ -293,6 +298,7 @@ class WebViewController: NSViewController, WKUIDelegate, WKNavigationDelegate {
         if webView == self.webView {
             hideLoading()
             fetchFavicon()
+            detectThemeColor()
         }
 
         if webView == authWebView,
@@ -300,6 +306,31 @@ class WebViewController: NSViewController, WKUIDelegate, WKNavigationDelegate {
            url.host?.contains("claude.ai") == true || url.host?.contains("anthropic") == true {
             closeAuthWindow()
             self.webView.reload()
+        }
+    }
+
+    private func detectThemeColor() {
+        // Use JavaScript to get the background color of the element at top-center
+        let js = """
+            (function() {
+                var el = document.elementFromPoint(window.innerWidth / 2, 5);
+                while (el) {
+                    var bg = getComputedStyle(el).backgroundColor;
+                    if (bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent') {
+                        return bg;
+                    }
+                    el = el.parentElement;
+                }
+                return getComputedStyle(document.body).backgroundColor || 'rgb(255,255,255)';
+            })()
+        """
+
+        webView.evaluateJavaScript(js) { [weak self] result, _ in
+            guard let colorString = result as? String,
+                  let color = NSColor.fromRGB(colorString) else { return }
+            DispatchQueue.main.async {
+                self?.onThemeColorDetected?(color)
+            }
         }
     }
 
@@ -357,5 +388,29 @@ class WebViewController: NSViewController, WKUIDelegate, WKNavigationDelegate {
                 }
             }.resume()
         }
+    }
+}
+
+// MARK: - Color Extensions
+
+extension NSColor {
+    static func fromRGB(_ rgb: String) -> NSColor? {
+        // Parse rgb(r, g, b) or rgba(r, g, b, a)
+        let numbers = rgb.components(separatedBy: CharacterSet.decimalDigits.inverted)
+            .compactMap { Int($0) }
+
+        guard numbers.count >= 3 else { return nil }
+
+        return NSColor(
+            red: CGFloat(numbers[0]) / 255.0,
+            green: CGFloat(numbers[1]) / 255.0,
+            blue: CGFloat(numbers[2]) / 255.0,
+            alpha: 1.0
+        )
+    }
+
+    var brightnessComponent: CGFloat {
+        guard let rgb = usingColorSpace(.sRGB) else { return 0.5 }
+        return (rgb.redComponent * 0.299 + rgb.greenComponent * 0.587 + rgb.blueComponent * 0.114)
     }
 }

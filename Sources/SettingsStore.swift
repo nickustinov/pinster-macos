@@ -58,7 +58,7 @@ class SettingsStore: ObservableObject {
                     shortcut: "⌥⌥⌥",
                     shortcutKeys: ShortcutKeys(modifiers: 0, keyCode: 0, isTripleTap: true, tapModifier: "option"),
                     useMobileUserAgent: false,
-                    displayMode: .bubble
+                    displayMode: .menuBar
                 ),
                 PinnedSite(
                     name: "ChatGPT",
@@ -66,7 +66,7 @@ class SettingsStore: ObservableObject {
                     shortcut: "⌘⌘⌘",
                     shortcutKeys: ShortcutKeys(modifiers: 0, keyCode: 0, isTripleTap: true, tapModifier: "command"),
                     useMobileUserAgent: false,
-                    displayMode: .menuBar
+                    displayMode: .bubble
                 )
             ]
         }

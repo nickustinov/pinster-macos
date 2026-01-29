@@ -14,6 +14,7 @@ class BubbleTitleBar: NSView {
 
     private var isDragging = false
     private var dragStartLocation: NSPoint = .zero
+    private var currentBackgroundColor: NSColor = .windowBackgroundColor
 
     override init(frame: NSRect) {
         pinButton = NSButton(frame: .zero)
@@ -21,8 +22,19 @@ class BubbleTitleBar: NSView {
 
         wantsLayer = true
         layer?.backgroundColor = NSColor.windowBackgroundColor.withAlphaComponent(0.95).cgColor
+        layer?.cornerRadius = 12
+        layer?.maskedCorners = [.layerMinXMaxYCorner, .layerMaxXMaxYCorner] // Top corners only
 
         setupPinButton()
+    }
+
+    func updateBackgroundColor(_ color: NSColor) {
+        currentBackgroundColor = color
+        layer?.backgroundColor = color.withAlphaComponent(0.95).cgColor
+
+        // Adjust pin button color for contrast
+        let brightness = color.brightnessComponent
+        pinButton.contentTintColor = isPinned ? .controlAccentColor : (brightness > 0.5 ? .darkGray : .lightGray)
     }
 
     required init?(coder: NSCoder) {
@@ -53,7 +65,8 @@ class BubbleTitleBar: NSView {
     private func updatePinButton() {
         let symbolName = isPinned ? "pin.fill" : "pin"
         pinButton.image = NSImage(systemSymbolName: symbolName, accessibilityDescription: "Pin")
-        pinButton.contentTintColor = isPinned ? .controlAccentColor : .secondaryLabelColor
+        let brightness = currentBackgroundColor.brightnessComponent
+        pinButton.contentTintColor = isPinned ? .controlAccentColor : (brightness > 0.5 ? .darkGray : .lightGray)
     }
 
     @objc private func pinTapped() {
