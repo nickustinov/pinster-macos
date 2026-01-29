@@ -16,6 +16,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         setAppIcon()
         setupStatusItem()
         setupPopover()
+        setupMainMenu()
 
         // Register global hotkeys
         HotkeyManager.shared.reregisterAll()
