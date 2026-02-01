@@ -31,6 +31,15 @@ Features:
 
 ## Installation
 
+### Homebrew
+
+```bash
+brew tap nickustinov/pinster
+brew install --cask pinster
+```
+
+### Manual
+
 1. Download `Pinster-x.x.x.dmg` from Releases
 2. Open the DMG and drag Pinster to Applications
 3. Launch from Applications — it appears as an icon in your menu bar
