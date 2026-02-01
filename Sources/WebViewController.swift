@@ -138,6 +138,56 @@ class WebViewController: NSViewController, WKUIDelegate, WKNavigationDelegate {
     var onFaviconLoaded: ((NSImage?) -> Void)?
     var onThemeColorDetected: ((NSColor) -> Void)?
 
+    private static let dragScrollJS = """
+    (function() {
+        var scrollSpeed = 0;
+        var scrollInterval = null;
+        var edgeZone = 40;
+        var maxSpeed = 15;
+
+        function startScrolling() {
+            if (scrollInterval) return;
+            scrollInterval = setInterval(function() {
+                if (scrollSpeed !== 0) window.scrollBy(0, scrollSpeed);
+            }, 16);
+        }
+
+        function stopScrolling() {
+            scrollSpeed = 0;
+            if (scrollInterval) {
+                clearInterval(scrollInterval);
+                scrollInterval = null;
+            }
+        }
+
+        var isSelecting = false;
+
+        document.addEventListener('mousedown', function() {
+            isSelecting = true;
+        }, true);
+
+        document.addEventListener('mouseup', function() {
+            isSelecting = false;
+            stopScrolling();
+        }, true);
+
+        document.addEventListener('mousemove', function(e) {
+            if (!isSelecting) return;
+            var y = e.clientY;
+            var vh = window.innerHeight;
+            if (y < edgeZone) {
+                scrollSpeed = -maxSpeed * (1 - y / edgeZone);
+                startScrolling();
+            } else if (y > vh - edgeZone) {
+                scrollSpeed = maxSpeed * (1 - (vh - y) / edgeZone);
+                startScrolling();
+            } else {
+                stopScrolling();
+            }
+        }, true);
+    })();
+    """
+
     override func loadView() {
         containerView = NSView(frame: NSRect(x: 0, y: 0, width: 420, height: 650))
         containerView.wantsLayer = true
@@ -145,6 +195,9 @@ class WebViewController: NSViewController, WKUIDelegate, WKNavigationDelegate {
         let config = WKWebViewConfiguration()
         config.websiteDataStore = .default()
         config.preferences.javaScriptCanOpenWindowsAutomatically = true
+
+        let dragScrollScript = WKUserScript(source: Self.dragScrollJS, injectionTime: .atDocumentEnd, forMainFrameOnly: false)
+        config.userContentController.addUserScript(dragScrollScript)
 
         webView = WKWebView(frame: containerView.bounds, configuration: config)
         webView.autoresizingMask = [.width, .height]
