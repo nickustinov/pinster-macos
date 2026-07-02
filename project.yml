@@ -1,8 +1,8 @@
-name: itsytack
+name: itsypin
 options:
   deploymentTarget:
     macOS: "13.0"
-  bundleIdPrefix: com.itsytack
+  bundleIdPrefix: com.itsypin
   xcodeVersion: "16.0"
   generateEmptyDirectories: true
   groupSortPosition: top
@@ -22,20 +22,20 @@ settings:
     CODE_SIGN_IDENTITY: "Apple Development"
 
 schemes:
-  itsytack:
+  itsypin:
     build:
       targets:
-        itsytack: all
+        itsypin: all
     run:
       config: Debug
     test:
       config: Debug
     archive:
       config: Release
-  itsytack-appstore:
+  itsypin-appstore:
     build:
       targets:
-        itsytack: all
+        itsypin: all
     run:
       config: Debug-AppStore
     test:
@@ -44,14 +44,14 @@ schemes:
       config: Release-AppStore
 
 targets:
-  itsytack:
+  itsypin:
     type: application
     platform: macOS
     sources:
       - path: Sources
         excludes:
-          - itsytack.entitlements
-          - itsytack-direct.entitlements
+          - itsypin.entitlements
+          - itsypin-direct.entitlements
       - path: Assets
         buildPhase: resources
         excludes:
@@ -59,9 +59,9 @@ targets:
     settings:
       base:
         INFOPLIST_FILE: Sources/Info.plist
-        CODE_SIGN_ENTITLEMENTS: Sources/itsytack.entitlements
-        PRODUCT_BUNDLE_IDENTIFIER: com.itsytack.app
-        PRODUCT_NAME: Itsytack
+        CODE_SIGN_ENTITLEMENTS: Sources/itsypin.entitlements
+        PRODUCT_BUNDLE_IDENTIFIER: com.itsypin.app
+        PRODUCT_NAME: Itsypin
         GENERATE_INFOPLIST_FILE: false
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         MARKETING_VERSION: "1.2.2"
@@ -69,9 +69,9 @@ targets:
         ENABLE_HARDENED_RUNTIME: true
       configs:
         Debug:
-          CODE_SIGN_ENTITLEMENTS: Sources/itsytack-direct.entitlements
+          CODE_SIGN_ENTITLEMENTS: Sources/itsypin-direct.entitlements
         Release:
-          CODE_SIGN_ENTITLEMENTS: Sources/itsytack-direct.entitlements
+          CODE_SIGN_ENTITLEMENTS: Sources/itsypin-direct.entitlements
         Debug-AppStore:
           SWIFT_ACTIVE_COMPILATION_CONDITIONS: APPSTORE
         Release-AppStore:

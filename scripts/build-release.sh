@@ -2,7 +2,7 @@
 set -e
 
 # Configuration
-APP_NAME="Itsytack"
+APP_NAME="Itsypin"
 VERSION=$(grep 'MARKETING_VERSION:' project.yml | sed 's/.*: *"\(.*\)"/\1/')
 SIGNING_IDENTITY="Developer ID Application: Nikolajs Ustinovs (R892A93W42)"
 
@@ -10,7 +10,7 @@ SIGNING_IDENTITY="Developer ID Application: Nikolajs Ustinovs (R892A93W42)"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 DIST_DIR="$PROJECT_DIR/dist"
-ARCHIVE_PATH="$DIST_DIR/itsytack.xcarchive"
+ARCHIVE_PATH="$DIST_DIR/itsypin.xcarchive"
 APP_BUNDLE="$DIST_DIR/$APP_NAME.app"
 DMG_PATH="$DIST_DIR/$APP_NAME-$VERSION.dmg"
 
@@ -25,7 +25,7 @@ xcodegen generate
 
 # Archive without signing, then sign manually with Developer ID
 echo "==> Archiving..."
-xcodebuild -scheme itsytack -configuration Release \
+xcodebuild -scheme itsypin -configuration Release \
     -destination 'generic/platform=macOS' \
     -archivePath "$ARCHIVE_PATH" \
     archive \
@@ -42,7 +42,7 @@ lipo -info "$ARCHIVE_APP/Contents/MacOS/$APP_NAME"
 
 echo "==> Signing with Developer ID..."
 codesign --force --options runtime --timestamp --sign "$SIGNING_IDENTITY" \
-    --entitlements "$PROJECT_DIR/Sources/itsytack-direct.entitlements" \
+    --entitlements "$PROJECT_DIR/Sources/itsypin-direct.entitlements" \
     "$ARCHIVE_APP"
 
 echo "==> Extracting app bundle..."
@@ -82,5 +82,5 @@ echo ""
 echo "To create a GitHub release:"
 echo "    gh release create v$VERSION \"$DMG_PATH\" --title \"v$VERSION\" --generate-notes"
 echo ""
-echo "For the App Store: open the project in Xcode, select the itsytack-appstore"
+echo "For the App Store: open the project in Xcode, select the itsypin-appstore"
 echo "scheme, then Product > Archive and upload via the Organizer."

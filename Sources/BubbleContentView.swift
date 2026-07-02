@@ -4,12 +4,19 @@ class BubbleTitleBar: NSView {
     static let height: CGFloat = 28
 
     private let pinButton: NSButton
+    private let mobileButton: NSButton
     var isPinned: Bool = false {
         didSet {
             updatePinButton()
         }
     }
+    var isMobileViewOn: Bool = false {
+        didSet {
+            updateMobileButton()
+        }
+    }
     var onPinToggle: ((Bool) -> Void)?
+    var onUserAgentToggle: (() -> Void)?
     var onDrag: ((CGFloat, CGFloat) -> Void)?
 
     private var isDragging = false
@@ -18,6 +25,7 @@ class BubbleTitleBar: NSView {
 
     override init(frame: NSRect) {
         pinButton = NSButton(frame: .zero)
+        mobileButton = NSButton(frame: .zero)
         super.init(frame: frame)
 
         wantsLayer = true
@@ -26,15 +34,17 @@ class BubbleTitleBar: NSView {
         layer?.maskedCorners = [.layerMinXMaxYCorner, .layerMaxXMaxYCorner] // Top corners only
 
         setupPinButton()
+        setupMobileButton()
     }
 
     func updateBackgroundColor(_ color: NSColor) {
         currentBackgroundColor = color
         layer?.backgroundColor = color.withAlphaComponent(0.95).cgColor
 
-        // Adjust pin button color for contrast
+        // Adjust button colors for contrast
         let brightness = color.brightnessComponent
         pinButton.contentTintColor = isPinned ? .controlAccentColor : (brightness > 0.5 ? .darkGray : .lightGray)
+        mobileButton.contentTintColor = isMobileViewOn ? .controlAccentColor : (brightness > 0.5 ? .darkGray : .lightGray)
     }
 
     required init?(coder: NSCoder) {
@@ -69,9 +79,40 @@ class BubbleTitleBar: NSView {
         pinButton.contentTintColor = isPinned ? .controlAccentColor : (brightness > 0.5 ? .darkGray : .lightGray)
     }
 
+    private func setupMobileButton() {
+        mobileButton.bezelStyle = .accessoryBarAction
+        mobileButton.isBordered = false
+        mobileButton.imagePosition = .imageOnly
+        mobileButton.target = self
+        mobileButton.action = #selector(mobileTapped)
+        mobileButton.toolTip = "Toggle mobile view"
+        mobileButton.translatesAutoresizingMaskIntoConstraints = false
+
+        addSubview(mobileButton)
+
+        NSLayoutConstraint.activate([
+            mobileButton.trailingAnchor.constraint(equalTo: pinButton.leadingAnchor, constant: -4),
+            mobileButton.centerYAnchor.constraint(equalTo: centerYAnchor),
+            mobileButton.widthAnchor.constraint(equalToConstant: 24),
+            mobileButton.heightAnchor.constraint(equalToConstant: 24)
+        ])
+
+        updateMobileButton()
+    }
+
+    private func updateMobileButton() {
+        mobileButton.image = NSImage(systemSymbolName: "iphone", accessibilityDescription: "Toggle mobile view")
+        let brightness = currentBackgroundColor.brightnessComponent
+        mobileButton.contentTintColor = isMobileViewOn ? .controlAccentColor : (brightness > 0.5 ? .darkGray : .lightGray)
+    }
+
     @objc private func pinTapped() {
         isPinned.toggle()
         onPinToggle?(isPinned)
+    }
+
+    @objc private func mobileTapped() {
+        onUserAgentToggle?()
     }
 
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool {
@@ -97,11 +138,20 @@ class BubbleTitleBar: NSView {
     }
 }
 
+enum FaviconPlacement {
+    case center
+    case edge(BubbleEdge)
+    case corner(HotCorner)
+}
+
 class BubbleContentView: NSView {
     private let snapshotImageView: NSImageView
     private let faviconImageView: NSImageView
     private let webViewContainer: NSView
     private(set) var titleBar: BubbleTitleBar?
+
+    /// Where the icon sits when the bubble background is hidden.
+    var faviconPlacement: FaviconPlacement = .center
 
     override init(frame: NSRect) {
         snapshotImageView = NSImageView(frame: NSRect(origin: .zero, size: frame.size))
@@ -118,6 +168,9 @@ class BubbleContentView: NSView {
         ))
         faviconImageView.imageScaling = .scaleProportionallyUpOrDown
         faviconImageView.autoresizingMask = [.minXMargin, .maxXMargin, .minYMargin, .maxYMargin]
+        faviconImageView.wantsLayer = true
+        faviconImageView.layer?.cornerRadius = faviconSize * 0.25
+        faviconImageView.layer?.masksToBounds = true
 
         webViewContainer = NSView(frame: NSRect(origin: .zero, size: frame.size))
         webViewContainer.autoresizingMask = [.width, .height]
@@ -160,18 +213,51 @@ class BubbleContentView: NSView {
         snapshotImageView.isHidden = false
         faviconImageView.isHidden = true
         webViewContainer.isHidden = true
+        layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
         hideTitleBar()
     }
 
     func showFavicon(_ image: NSImage?) {
         faviconImageView.image = image
+        faviconImageView.frame = faviconFrame()
         faviconImageView.isHidden = false
         snapshotImageView.isHidden = true
         webViewContainer.isHidden = true
+        if SettingsStore.shared.showBubbleBackground {
+            layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
+        } else {
+            // Visually transparent, but not alpha 0 — the window server treats
+            // fully transparent pixels as click-through
+            layer?.backgroundColor = NSColor.windowBackgroundColor.withAlphaComponent(0.01).cgColor
+        }
         hideTitleBar()
     }
 
+    private func faviconFrame() -> NSRect {
+        let size = faviconImageView.frame.size
+        var origin = NSPoint(x: (bounds.width - size.width) / 2, y: (bounds.height - size.height) / 2)
+
+        // With no visible background, sit flush against the screen edge
+        if !SettingsStore.shared.showBubbleBackground {
+            switch faviconPlacement {
+            case .center:
+                break
+            case .edge(.right):
+                origin.x = bounds.width - size.width
+            case .edge(.bottom):
+                origin.y = 0
+            case .corner(.bottomLeft):
+                origin = .zero
+            case .corner(.bottomRight):
+                origin = NSPoint(x: bounds.width - size.width, y: 0)
+            }
+        }
+
+        return NSRect(origin: origin, size: size)
+    }
+
     func showWebView(_ webView: NSView) {
+        layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
         showTitleBar()
 
         // Update container to leave room for title bar (use integral rect to avoid subpixel gaps)

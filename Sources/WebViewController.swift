@@ -115,10 +115,73 @@ class ResizeHandleView: NSView {
     }
 }
 
+// MARK: - Web View with Context Menu Extras
+
+class ContextMenuWebView: WKWebView {
+    /// Link under the cursor at the time of the last right-click, tracked via JS.
+    var contextMenuLinkURL: URL?
+
+    override func willOpenMenu(_ menu: NSMenu, with event: NSEvent) {
+        super.willOpenMenu(menu, with: event)
+
+        menu.addItem(.separator())
+
+        if let link = contextMenuLinkURL {
+            let item = NSMenuItem(title: "Open Link in Browser", action: #selector(openLinkInBrowser(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = link
+            menu.addItem(item)
+        }
+
+        if canGoBack {
+            let item = NSMenuItem(title: "Back", action: #selector(goBackFromMenu), keyEquivalent: "")
+            item.target = self
+            menu.addItem(item)
+        }
+        if canGoForward {
+            let item = NSMenuItem(title: "Forward", action: #selector(goForwardFromMenu), keyEquivalent: "")
+            item.target = self
+            menu.addItem(item)
+        }
+
+        let pageItem = NSMenuItem(title: "Open Page in Browser", action: #selector(openPageInBrowser), keyEquivalent: "")
+        pageItem.target = self
+        menu.addItem(pageItem)
+    }
+
+    @objc private func openLinkInBrowser(_ sender: NSMenuItem) {
+        if let url = sender.representedObject as? URL {
+            NSWorkspace.shared.open(url)
+        }
+    }
+
+    @objc private func goBackFromMenu() { goBack() }
+    @objc private func goForwardFromMenu() { goForward() }
+
+    @objc private func openPageInBrowser() {
+        if let url {
+            NSWorkspace.shared.open(url)
+        }
+    }
+}
+
+/// Breaks the retain cycle WKUserContentController creates with its message handlers.
+private class WeakScriptMessageHandler: NSObject, WKScriptMessageHandler {
+    private weak var delegate: WKScriptMessageHandler?
+
+    init(_ delegate: WKScriptMessageHandler) {
+        self.delegate = delegate
+    }
+
+    func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+        delegate?.userContentController(userContentController, didReceive: message)
+    }
+}
+
 // MARK: - WebView Controller
 
-class WebViewController: NSViewController, WKUIDelegate, WKNavigationDelegate {
-    private var webView: WKWebView!
+class WebViewController: NSViewController, WKUIDelegate, WKNavigationDelegate, WKScriptMessageHandler {
+    private var webView: ContextMenuWebView!
     private var loadingOverlay: NSView!
     private var spinner: NSProgressIndicator!
     private var containerView: NSView!
@@ -182,6 +245,13 @@ class WebViewController: NSViewController, WKUIDelegate, WKNavigationDelegate {
     })();
     """
 
+    private static let contextMenuJS = """
+    document.addEventListener('contextmenu', function(e) {
+        var a = e.target && e.target.closest ? e.target.closest('a[href]') : null;
+        window.webkit.messageHandlers.contextMenuLink.postMessage(a ? a.href : '');
+    }, true);
+    """
+
     override func loadView() {
         containerView = NSView(frame: NSRect(x: 0, y: 0, width: 420, height: 650))
         containerView.wantsLayer = true
@@ -193,7 +263,11 @@ class WebViewController: NSViewController, WKUIDelegate, WKNavigationDelegate {
         let dragScrollScript = WKUserScript(source: Self.dragScrollJS, injectionTime: .atDocumentEnd, forMainFrameOnly: false)
         config.userContentController.addUserScript(dragScrollScript)
 
-        webView = WKWebView(frame: containerView.bounds, configuration: config)
+        let contextMenuScript = WKUserScript(source: Self.contextMenuJS, injectionTime: .atDocumentEnd, forMainFrameOnly: false)
+        config.userContentController.addUserScript(contextMenuScript)
+        config.userContentController.add(WeakScriptMessageHandler(self), name: "contextMenuLink")
+
+        webView = ContextMenuWebView(frame: containerView.bounds, configuration: config)
         webView.autoresizingMask = [.width, .height]
         webView.uiDelegate = self
         webView.navigationDelegate = self
@@ -286,14 +360,16 @@ class WebViewController: NSViewController, WKUIDelegate, WKNavigationDelegate {
         authWebView.uiDelegate = self
         authWebView.navigationDelegate = self
 
+        // A regular activating window, not a non-activating panel: password
+        // managers only offer autofill in the active app's focused fields
         let panel = NSPanel(
             contentRect: NSRect(x: 0, y: 0, width: 500, height: 700),
-            styleMask: [.titled, .closable, .resizable, .nonactivatingPanel],
+            styleMask: [.titled, .closable, .resizable],
             backing: .buffered,
             defer: false
         )
         panel.contentView = authWebView
-        panel.title = "Sign in"
+        panel.title = navigationAction.request.url?.host ?? "Sign in"
         panel.center()
         panel.isReleasedWhenClosed = false
         panel.hidesOnDeactivate = false
@@ -322,6 +398,59 @@ class WebViewController: NSViewController, WKUIDelegate, WKNavigationDelegate {
         if webView == authWebView {
             closeAuthWindow()
         }
+    }
+
+    func webView(_ webView: WKWebView, runJavaScriptAlertPanelWithMessage message: String,
+                 initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping () -> Void) {
+        let alert = NSAlert()
+        alert.messageText = frame.request.url?.host ?? "This page says"
+        alert.informativeText = message
+        alert.addButton(withTitle: "OK")
+        alert.runModal()
+        completionHandler()
+    }
+
+    func webView(_ webView: WKWebView, runJavaScriptConfirmPanelWithMessage message: String,
+                 initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping (Bool) -> Void) {
+        let alert = NSAlert()
+        alert.messageText = frame.request.url?.host ?? "This page says"
+        alert.informativeText = message
+        alert.addButton(withTitle: "OK")
+        alert.addButton(withTitle: "Cancel")
+        completionHandler(alert.runModal() == .alertFirstButtonReturn)
+    }
+
+    func webView(_ webView: WKWebView, runJavaScriptTextInputPanelWithPrompt prompt: String, defaultText: String?,
+                 initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping (String?) -> Void) {
+        let alert = NSAlert()
+        alert.messageText = frame.request.url?.host ?? "This page says"
+        alert.informativeText = prompt
+        let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 240, height: 24))
+        field.stringValue = defaultText ?? ""
+        alert.accessoryView = field
+        alert.addButton(withTitle: "OK")
+        alert.addButton(withTitle: "Cancel")
+        completionHandler(alert.runModal() == .alertFirstButtonReturn ? field.stringValue : nil)
+    }
+
+    func webView(_ webView: WKWebView, runOpenPanelWith parameters: WKOpenPanelParameters,
+                 initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping ([URL]?) -> Void) {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = parameters.allowsDirectories
+        panel.allowsMultipleSelection = parameters.allowsMultipleSelection
+        panel.level = .modalPanel
+        panel.begin { response in
+            completionHandler(response == .OK ? panel.urls : nil)
+        }
+    }
+
+    // MARK: - WKScriptMessageHandler
+
+    func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+        guard message.name == "contextMenuLink" else { return }
+        let href = message.body as? String ?? ""
+        webView.contextMenuLinkURL = URL(string: href)
     }
 
     private func closeAuthWindow() {

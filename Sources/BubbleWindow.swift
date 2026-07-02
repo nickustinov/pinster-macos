@@ -2,13 +2,16 @@ import Cocoa
 import WebKit
 
 class BubbleWindow: NSPanel {
-    static let collapsedSize = NSSize(width: 60, height: 60)
+    static var collapsedSize: NSSize {
+        let side = SettingsStore.shared.bubbleSize
+        return NSSize(width: side, height: side)
+    }
     static let expandedSize = NSSize(width: 420, height: 650)
     private static let hoverDelay: TimeInterval = 0.4
     private static let animationDuration: TimeInterval = 0.2
     private static let dragThreshold: CGFloat = 5
 
-    let site: PinnedSite
+    private(set) var site: PinnedSite
     private(set) var isExpanded = false
     private(set) var isPinned = false
     private var isAnimating = false
@@ -23,6 +26,7 @@ class BubbleWindow: NSPanel {
     private var localMouseMonitor: Any?
     private var dragMonitor: Any?
     private var collapseTimer: Timer?
+    private var unloadTimer: Timer?
     private var resizeHandles: [ResizeHandleView] = []
     private var previewWebView: WKWebView?
 
@@ -102,6 +106,12 @@ class BubbleWindow: NSPanel {
     }
 
     private func fetchFavicon() {
+        if let data = site.customIcon, let image = NSImage(data: data) {
+            image.size = NSSize(width: 32, height: 32)
+            applyFavicon(image)
+            return
+        }
+
         guard let url = URL(string: site.url),
               let host = url.host else { return }
 
@@ -115,17 +125,58 @@ class BubbleWindow: NSPanel {
         ].compactMap { $0 }
 
         FaviconLoader.fetch(from: faviconURLs, size: 32) { [weak self] image in
-            guard let self, let image else { return }
-            self.faviconImage = image
-            if !self.isExpanded {
-                self.bubbleContentView.showFavicon(image)
-            }
+            guard let self else { return }
+            // Never leave the bubble blank — fall back to the site's initial letter
+            self.applyFavicon(image ?? self.letterFallbackIcon())
+        }
+    }
+
+    private func applyFavicon(_ image: NSImage) {
+        faviconImage = image
+        if !isExpanded && !SettingsStore.shared.showBubblePreviews {
+            bubbleContentView.showFavicon(image)
+        }
+    }
+
+    private func letterFallbackIcon() -> NSImage {
+        let letter = site.name.first.map(String.init)?.uppercased() ?? "?"
+        let size = NSSize(width: 32, height: 32)
+        return NSImage(size: size, flipped: false) { rect in
+            NSColor.controlAccentColor.setFill()
+            NSBezierPath(ovalIn: rect).fill()
+            let attributes: [NSAttributedString.Key: Any] = [
+                .font: NSFont.systemFont(ofSize: 16, weight: .semibold),
+                .foregroundColor: NSColor.white
+            ]
+            let string = NSAttributedString(string: letter, attributes: attributes)
+            let stringSize = string.size()
+            string.draw(at: NSPoint(x: rect.midX - stringSize.width / 2, y: rect.midY - stringSize.height / 2))
+            return true
+        }
+    }
+
+    /// Applies edits made in settings without recreating the window.
+    func updateSite(_ newSite: PinnedSite) {
+        let needsReload = newSite.url != site.url
+            || newSite.useMobileUserAgent != site.useMobileUserAgent
+            || newSite.customIcon != site.customIcon
+        site = newSite
+        guard needsReload else { return }
+
+        snapshotImage = nil
+        faviconImage = nil
+        fetchFavicon()
+        if isExpanded {
+            webViewController?.loadSite(site)
+        } else {
+            webViewController = nil
         }
     }
 
     deinit {
         hoverTimer?.invalidate()
         collapseTimer?.invalidate()
+        unloadTimer?.invalidate()
         stopMonitors()
     }
 
@@ -425,8 +476,17 @@ class BubbleWindow: NSPanel {
         SettingsStore.shared.updateBubblePosition(id: site.id, position: currentPosition)
     }
 
+    func expandFromHotCorner() {
+        guard !isExpanded && !isAnimating else { return }
+        orderFront(nil)
+        expand()
+    }
+
     func expand() {
         guard !isExpanded && !isAnimating else { return }
+
+        unloadTimer?.invalidate()
+        unloadTimer = nil
 
         BubbleManager.shared.willExpandBubble(self)
 
@@ -434,6 +494,12 @@ class BubbleWindow: NSPanel {
             webViewController = WebViewController()
             webViewController?.onThemeColorDetected = { [weak self] color in
                 self?.bubbleContentView.titleBar?.updateBackgroundColor(color)
+            }
+            webViewController?.onFaviconLoaded = { [weak self] icon in
+                guard let self, self.site.customIcon == nil, let icon else { return }
+                // The page's own favicon is more reliable than URL guessing
+                icon.size = NSSize(width: 32, height: 32)
+                self.faviconImage = icon
             }
         }
         webViewController?.loadSite(site)
@@ -470,9 +536,18 @@ class BubbleWindow: NSPanel {
         guard let titleBar = bubbleContentView.titleBar else { return }
 
         titleBar.isPinned = isPinned
+        titleBar.isMobileViewOn = site.useMobileUserAgent
 
         titleBar.onPinToggle = { [weak self] pinned in
             self?.isPinned = pinned
+        }
+
+        titleBar.onUserAgentToggle = { [weak self] in
+            guard let self else { return }
+            self.site.useMobileUserAgent.toggle()
+            SettingsStore.shared.updateSiteUserAgent(id: self.site.id, useMobile: self.site.useMobileUserAgent)
+            self.webViewController?.loadSite(self.site)
+            self.bubbleContentView.titleBar?.isMobileViewOn = self.site.useMobileUserAgent
         }
 
         titleBar.onDrag = { [weak self] deltaX, deltaY in
@@ -559,13 +634,14 @@ class BubbleWindow: NSPanel {
 
         let edge = SettingsStore.shared.preferredBubbleEdge
 
-        // Show snapshot or favicon based on settings
+        // Shrink the content first so the favicon frame is computed against
+        // collapsed bounds, not the still-expanded ones
+        bubbleContentView.frame = NSRect(origin: .zero, size: BubbleWindow.collapsedSize)
         if SettingsStore.shared.showBubblePreviews {
             bubbleContentView.showSnapshot(snapshotImage)
         } else {
-            bubbleContentView.showFavicon(faviconImage)
+            bubbleContentView.showFavicon(faviconImage ?? letterFallbackIcon())
         }
-        bubbleContentView.frame = NSRect(origin: .zero, size: BubbleWindow.collapsedSize)
 
         NSAnimationContext.runAnimationGroup { context in
             context.duration = BubbleWindow.animationDuration
@@ -574,24 +650,51 @@ class BubbleWindow: NSPanel {
             let collapsedFrame = calculateCollapsedFrame(edge: edge, position: currentPosition)
             self.animator().setFrame(collapsedFrame, display: true)
         } completionHandler: { [weak self] in
-            self?.isAnimating = false
-            if let self = self {
-                BubbleManager.shared.bubbleDidCollapse(self)
+            guard let self = self else { return }
+            self.isAnimating = false
+            if self.site.hotCorner != nil {
+                self.orderOut(nil)
             }
+            self.scheduleUnloadIfNeeded()
+            BubbleManager.shared.bubbleDidCollapse(self)
+        }
+    }
+
+    private func scheduleUnloadIfNeeded() {
+        unloadTimer?.invalidate()
+        let minutes = SettingsStore.shared.bubbleUnloadMinutes
+        guard minutes > 0 else { return }
+        unloadTimer = Timer.scheduledTimer(withTimeInterval: TimeInterval(minutes) * 60, repeats: false) { [weak self] _ in
+            guard let self, !self.isExpanded else { return }
+            self.webViewController = nil
         }
     }
 
     func positionOnEdge(edge: BubbleEdge, position: CGFloat) {
         currentPosition = position
+        bubbleContentView.faviconPlacement = site.hotCorner.map { .corner($0) } ?? .edge(edge)
         let newFrame = isExpanded
             ? calculateExpandedFrame(edge: edge, position: position)
             : calculateCollapsedFrame(edge: edge, position: position)
         setFrame(newFrame, display: true)
+        if !isExpanded {
+            // Keep content in sync when the bubble size setting changes
+            bubbleContentView.frame = NSRect(origin: .zero, size: newFrame.size)
+        }
+    }
+
+    private func cornerFrame(size: NSSize, corner: HotCorner, visibleFrame: NSRect) -> NSRect {
+        let x = corner == .bottomLeft ? visibleFrame.minX : visibleFrame.maxX - size.width
+        return NSIntegralRect(NSRect(x: x, y: visibleFrame.minY, width: size.width, height: size.height))
     }
 
     private func calculateCollapsedFrame(edge: BubbleEdge, position: CGFloat) -> NSRect {
         guard let screen = NSScreen.main else {
             return NSRect(origin: .zero, size: BubbleWindow.collapsedSize)
+        }
+
+        if let corner = site.hotCorner {
+            return cornerFrame(size: BubbleWindow.collapsedSize, corner: corner, visibleFrame: screen.visibleFrame)
         }
 
         let visibleFrame = screen.visibleFrame
@@ -613,6 +716,10 @@ class BubbleWindow: NSPanel {
     private func calculateExpandedFrame(edge: BubbleEdge, position: CGFloat) -> NSRect {
         guard let screen = NSScreen.main else {
             return NSRect(origin: .zero, size: currentExpandedSize)
+        }
+
+        if let corner = site.hotCorner {
+            return cornerFrame(size: currentExpandedSize, corner: corner, visibleFrame: screen.visibleFrame)
         }
 
         let visibleFrame = screen.visibleFrame
@@ -638,6 +745,8 @@ class BubbleWindow: NSPanel {
         hoverTimer = nil
         collapseTimer?.invalidate()
         collapseTimer = nil
+        unloadTimer?.invalidate()
+        unloadTimer = nil
         stopMonitors()
         removeResizeHandles()
         webViewController = nil

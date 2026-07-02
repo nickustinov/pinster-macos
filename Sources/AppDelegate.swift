@@ -4,7 +4,9 @@ import SwiftUI
 class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     private var statusItem: NSStatusItem!
     private var popover: NSPopover!
-    private var currentWebViewController: WebViewController?
+    // ponytail: one live webview per menu bar site, kept for the app's lifetime
+    // so pages preserve state between opens; add an unload policy if memory bites
+    private var webViewControllers: [UUID: WebViewController] = [:]
     private var currentSite: PinnedSite?
     private var clickOutsideMonitor: Any?
     private var settingsWindow: NSWindow?
@@ -35,6 +37,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         rebuildMenu()
         HotkeyManager.shared.reregisterAll()
         BubbleManager.shared.showBubblesForSites()
+
+        // Drop cached webviews for sites that were removed or moved to bubble mode
+        let menuBarIds = Set(SettingsStore.shared.pinnedSites.filter { $0.displayMode == .menuBar }.map(\.id))
+        webViewControllers = webViewControllers.filter { menuBarIds.contains($0.key) }
     }
 
     // MARK: - Status Item & Menu
@@ -101,7 +107,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
 
         menu.addItem(NSMenuItem(title: "Settings...", action: #selector(openSettings), keyEquivalent: ""))
         menu.addItem(.separator())
-        menu.addItem(NSMenuItem(title: "Quit Itsytack", action: #selector(NSApplication.terminate(_:)), keyEquivalent: ""))
+        menu.addItem(NSMenuItem(title: "Quit Itsypin", action: #selector(NSApplication.terminate(_:)), keyEquivalent: ""))
 
         statusItem.menu = menu
     }
@@ -140,7 +146,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
 
         // App menu
         let appMenu = NSMenu()
-        appMenu.addItem(NSMenuItem(title: "Quit Itsytack", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
+        appMenu.addItem(NSMenuItem(title: "Quit Itsypin", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
         let appMenuItem = NSMenuItem()
         appMenuItem.submenu = appMenu
         mainMenu.addItem(appMenuItem)
@@ -199,51 +205,58 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     private func showPopover(for site: PinnedSite) {
         guard let button = statusItem.button else { return }
 
-        if popover.isShown {
-            if currentSite?.id == site.id {
-                popover.performClose(nil)
-                return
-            }
-            // Reset to default icon when switching sites
-            statusItem.button?.image = defaultMenuBarIcon
-            currentWebViewController?.loadSite(site)
-            popover.contentSize = site.windowSize
-            currentSite = site
+        if popover.isShown && currentSite?.id == site.id {
+            popover.performClose(nil)
             return
         }
 
-        // Reset to default icon when opening popover
-        statusItem.button?.image = defaultMenuBarIcon
-
-        if currentWebViewController == nil {
-            currentWebViewController = WebViewController()
-            currentWebViewController?.onResize = { [weak self] newSize in
-                self?.popover.contentSize = newSize
-                if let siteId = self?.currentSite?.id {
-                    SettingsStore.shared.updateSiteSize(id: siteId, size: newSize)
-                }
-            }
-            currentWebViewController?.onFaviconLoaded = { [weak self] favicon in
-                guard let self = self, self.popover.isShown else { return }
-                if let favicon = favicon {
-                    self.statusItem.button?.image = favicon
-                }
-            }
-        }
-
+        let wasShown = popover.isShown
         currentSite = site
-        currentWebViewController?.loadSite(site)
-        popover.contentViewController = currentWebViewController
+        statusItem.button?.image = statusIcon(for: site)
+
+        let controller = webViewController(for: site)
+        controller.loadSite(site) // no-op unless the site's URL or user agent changed
+        popover.contentViewController = controller
         popover.contentSize = site.windowSize
 
-        popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
-        NSApp.activate(ignoringOtherApps: true)
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
-            self?.currentWebViewController?.makeWebViewFirstResponder()
+        if !wasShown {
+            popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+            NSApp.activate(ignoringOtherApps: true)
+            startClickOutsideMonitor()
         }
 
-        startClickOutsideMonitor()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            controller.makeWebViewFirstResponder()
+        }
+    }
+
+    private func webViewController(for site: PinnedSite) -> WebViewController {
+        if let existing = webViewControllers[site.id] {
+            return existing
+        }
+
+        let controller = WebViewController()
+        controller.onResize = { [weak self] newSize in
+            self?.popover.contentSize = newSize
+            SettingsStore.shared.updateSiteSize(id: site.id, size: newSize)
+        }
+        controller.onFaviconLoaded = { [weak self] favicon in
+            guard let self = self, self.currentSite?.id == site.id, self.popover.isShown,
+                  self.currentSite?.customIcon == nil else { return }
+            if let favicon = favicon {
+                self.statusItem.button?.image = favicon
+            }
+        }
+        webViewControllers[site.id] = controller
+        return controller
+    }
+
+    private func statusIcon(for site: PinnedSite) -> NSImage? {
+        if let data = site.customIcon, let image = NSImage(data: data) {
+            image.size = NSSize(width: 18, height: 18)
+            return image
+        }
+        return defaultMenuBarIcon
     }
 
     func popoverDidClose(_ notification: Notification) {

@@ -44,14 +44,45 @@ class SettingsStore: ObservableObject {
         }
     }
 
+    @Published var showBubbleBackground: Bool = false {
+        didSet {
+            UserDefaults.standard.set(showBubbleBackground, forKey: bubbleBackgroundKey)
+            NotificationCenter.default.post(name: .bubbleSettingsChanged, object: nil)
+        }
+    }
+
+    @Published var bubbleSize: Double = 60 {
+        didSet {
+            UserDefaults.standard.set(bubbleSize, forKey: bubbleSizeKey)
+            NotificationCenter.default.post(name: .bubbleSettingsChanged, object: nil)
+        }
+    }
+
+    /// Minutes a collapsed bubble keeps its page loaded; 0 means never unload.
+    @Published var bubbleUnloadMinutes: Int = 0 {
+        didSet {
+            UserDefaults.standard.set(bubbleUnloadMinutes, forKey: bubbleUnloadKey)
+        }
+    }
+
     private let sitesKey = "pinnedSites"
     private let bubbleEdgeKey = "preferredBubbleEdge"
     private let bubblePreviewsKey = "showBubblePreviews"
+    private let bubbleBackgroundKey = "showBubbleBackground"
+    private let bubbleSizeKey = "bubbleSize"
+    private let bubbleUnloadKey = "bubbleUnloadMinutes"
 
     private init() {
         loadSites()
         loadBubbleEdge()
         loadBubblePreviews()
+        if UserDefaults.standard.object(forKey: bubbleBackgroundKey) != nil {
+            showBubbleBackground = UserDefaults.standard.bool(forKey: bubbleBackgroundKey)
+        }
+        if UserDefaults.standard.object(forKey: bubbleSizeKey) != nil {
+            bubbleSize = UserDefaults.standard.double(forKey: bubbleSizeKey)
+        }
+        bubbleUnloadMinutes = UserDefaults.standard.integer(forKey: bubbleUnloadKey)
         syncLaunchAtLoginStatus()
 
         if pinnedSites.isEmpty {
@@ -59,18 +90,10 @@ class SettingsStore: ObservableObject {
                 PinnedSite(
                     name: "Claude",
                     url: "https://claude.ai",
-                    shortcut: "⌥⌥⌥",
-                    shortcutKeys: ShortcutKeys(modifiers: 0, keyCode: 0, isTripleTap: true, tapModifier: "option"),
-                    useMobileUserAgent: false,
-                    displayMode: .menuBar
-                ),
-                PinnedSite(
-                    name: "ChatGPT",
-                    url: "https://chatgpt.com",
                     shortcut: "⌘⌘⌘",
                     shortcutKeys: ShortcutKeys(modifiers: 0, keyCode: 0, isTripleTap: true, tapModifier: "command"),
                     useMobileUserAgent: false,
-                    displayMode: .bubble
+                    displayMode: .menuBar
                 )
             ]
         }
@@ -84,9 +107,10 @@ class SettingsStore: ObservableObject {
     }
 
     private func loadSites() {
-        // ponytail: falls back to the pre-rename com.pinster.app domain once;
+        // ponytail: falls back to the pre-rename defaults domains once;
         // the didSet save then persists sites under the new bundle id
         let data = UserDefaults.standard.data(forKey: sitesKey)
+            ?? UserDefaults(suiteName: "com.itsytack.app")?.data(forKey: sitesKey)
             ?? UserDefaults(suiteName: "com.pinster.app")?.data(forKey: sitesKey)
         guard let data,
               let sites = try? JSONDecoder().decode([PinnedSite].self, from: data) else {
@@ -132,6 +156,14 @@ class SettingsStore: ObservableObject {
     func updateSite(_ site: PinnedSite) {
         if let index = pinnedSites.firstIndex(where: { $0.id == site.id }) {
             pinnedSites[index] = site
+        }
+    }
+
+    func updateSiteUserAgent(id: UUID, useMobile: Bool) {
+        if let index = pinnedSites.firstIndex(where: { $0.id == id }) {
+            withoutChangeNotification {
+                pinnedSites[index].useMobileUserAgent = useMobile
+            }
         }
     }
 

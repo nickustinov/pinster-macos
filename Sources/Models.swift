@@ -1,7 +1,7 @@
 import Cocoa
 
 let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "unknown"
-let githubURL = "https://github.com/nickustinov/itsytack-macos"
+let githubURL = "https://github.com/nickustinov/itsypin-macos"
 
 struct PinnedSite: Identifiable, Codable, Equatable {
     let id: UUID
@@ -14,8 +14,10 @@ struct PinnedSite: Identifiable, Codable, Equatable {
     var windowHeight: Double?
     var displayMode: DisplayMode
     var bubblePosition: CGFloat?
+    var customIcon: Data?
+    var hotCorner: HotCorner?
 
-    init(id: UUID = UUID(), name: String, url: String, shortcut: String = "", shortcutKeys: ShortcutKeys? = nil, useMobileUserAgent: Bool = false, windowWidth: Double? = nil, windowHeight: Double? = nil, displayMode: DisplayMode = .menuBar, bubblePosition: CGFloat? = nil) {
+    init(id: UUID = UUID(), name: String, url: String, shortcut: String = "", shortcutKeys: ShortcutKeys? = nil, useMobileUserAgent: Bool = false, windowWidth: Double? = nil, windowHeight: Double? = nil, displayMode: DisplayMode = .menuBar, bubblePosition: CGFloat? = nil, customIcon: Data? = nil, hotCorner: HotCorner? = nil) {
         self.id = id
         self.name = name
         self.url = url
@@ -26,6 +28,8 @@ struct PinnedSite: Identifiable, Codable, Equatable {
         self.windowHeight = windowHeight
         self.displayMode = displayMode
         self.bubblePosition = bubblePosition
+        self.customIcon = customIcon
+        self.hotCorner = hotCorner
     }
 
     init(from decoder: Decoder) throws {
@@ -40,6 +44,8 @@ struct PinnedSite: Identifiable, Codable, Equatable {
         windowHeight = try container.decodeIfPresent(Double.self, forKey: .windowHeight)
         displayMode = try container.decodeIfPresent(DisplayMode.self, forKey: .displayMode) ?? .menuBar
         bubblePosition = try container.decodeIfPresent(CGFloat.self, forKey: .bubblePosition)
+        customIcon = try container.decodeIfPresent(Data.self, forKey: .customIcon)
+        hotCorner = try container.decodeIfPresent(HotCorner.self, forKey: .hotCorner)
     }
 
     var userAgent: String {
@@ -69,5 +75,10 @@ enum DisplayMode: String, Codable, CaseIterable {
 enum BubbleEdge: String, Codable, CaseIterable {
     case right
     case bottom
+}
+
+enum HotCorner: String, Codable, CaseIterable {
+    case bottomLeft
+    case bottomRight
 }
 

@@ -5,6 +5,8 @@ class BubbleManager {
 
     private var bubbleWindows: [UUID: BubbleWindow] = [:]
     private weak var expandedBubble: BubbleWindow?
+    private var hotCornerGlobalMonitor: Any?
+    private var hotCornerLocalMonitor: Any?
 
     private init() {
         NotificationCenter.default.addObserver(
@@ -60,15 +62,22 @@ class BubbleManager {
 
         for site in bubbleSites {
             if let existingWindow = bubbleWindows[site.id] {
-                // Update position if needed
+                existingWindow.updateSite(site)
                 let position = site.bubblePosition ?? nextPosition
                 existingWindow.positionOnEdge(edge: edge, position: position)
+                if site.hotCorner == nil {
+                    existingWindow.orderFront(nil)
+                } else if !existingWindow.isExpanded {
+                    existingWindow.orderOut(nil)
+                }
             } else {
-                // Create new bubble
+                // Create new bubble; hot corner bubbles stay hidden until triggered
                 let position = site.bubblePosition ?? nextPosition
                 let bubble = BubbleWindow(site: site)
                 bubble.positionOnEdge(edge: edge, position: position)
-                bubble.orderFront(nil)
+                if site.hotCorner == nil {
+                    bubble.orderFront(nil)
+                }
                 bubbleWindows[site.id] = bubble
 
                 // Save auto-assigned position if not set
@@ -80,6 +89,51 @@ class BubbleManager {
             nextPosition += 0.15
             if nextPosition > 0.9 {
                 nextPosition = 0.1
+            }
+        }
+
+        updateHotCornerMonitor()
+    }
+
+    // MARK: - Hot Corners
+
+    private func updateHotCornerMonitor() {
+        if let monitor = hotCornerGlobalMonitor {
+            NSEvent.removeMonitor(monitor)
+            hotCornerGlobalMonitor = nil
+        }
+        if let monitor = hotCornerLocalMonitor {
+            NSEvent.removeMonitor(monitor)
+            hotCornerLocalMonitor = nil
+        }
+
+        guard bubbleWindows.values.contains(where: { $0.site.hotCorner != nil }) else { return }
+
+        hotCornerGlobalMonitor = NSEvent.addGlobalMonitorForEvents(matching: .mouseMoved) { [weak self] _ in
+            self?.checkHotCorners()
+        }
+        hotCornerLocalMonitor = NSEvent.addLocalMonitorForEvents(matching: .mouseMoved) { [weak self] event in
+            self?.checkHotCorners()
+            return event
+        }
+    }
+
+    private func checkHotCorners() {
+        // ponytail: main screen only; per-screen corners if anyone asks
+        guard let screen = NSScreen.main else { return }
+
+        let location = NSEvent.mouseLocation
+        let zoneSize: CGFloat = 8
+
+        for window in bubbleWindows.values {
+            guard let corner = window.site.hotCorner, !window.isExpanded else { continue }
+
+            let frame = screen.frame
+            let x = corner == .bottomLeft ? frame.minX : frame.maxX - zoneSize
+            let zone = NSRect(x: x, y: frame.minY, width: zoneSize, height: zoneSize)
+
+            if zone.contains(location) {
+                window.expandFromHotCorner()
             }
         }
     }

@@ -1,16 +1,16 @@
-# Itsytack
+# Itsypin
 
 A lightweight macOS menu bar application for quick access to pinned websites.
 
-![Itsytack demo](Assets/demo-v3.gif)
+![Itsypin demo](Assets/demo-v3.gif)
 
 ## Download
 
-Download the latest release from [Releases](https://github.com/nickustinov/itsytack-macos/releases).
+Download the latest release from [Releases](https://github.com/nickustinov/itsypin-macos/releases).
 
 ## What it does
 
-Itsytack lives in your menu bar and lets you open frequently used websites in floating popover windows or as floating bubbles on the screen edge. No need to switch to a browser — just click the menu bar icon, hover over a bubble, or use a keyboard shortcut.
+Itsypin lives in your menu bar and lets you open frequently used websites in floating popover windows or as floating bubbles on the screen edge. No need to switch to a browser — just click the menu bar icon, hover over a bubble, or use a keyboard shortcut.
 
 Features:
 - **Menu bar integration** — Access sites from the status bar dropdown
@@ -22,7 +22,12 @@ Features:
 - **Triple-tap shortcuts** — Press a modifier key three times rapidly (e.g., ⌥⌥⌥)
 - **Resizable windows** — Drag any corner to resize
 - **Favicon in menu bar** — Shows site favicon while popover is open
-- **Mobile view** — Render sites with a mobile user agent for compact layouts
+- **Mobile view** — Render sites with a mobile user agent, switchable from the bubble title bar
+- **Pages stay loaded** — Sites keep their state between opens; optional auto-unload for collapsed bubbles
+- **Hot corners** — Hide a bubble entirely and reveal it by moving the cursor into a screen corner
+- **Custom icons** — Replace the fetched favicon with your own image per site
+- **File uploads and dialogs** — Native file picker, alert/confirm/prompt support
+- **Open in browser** — Right-click any link or page to open it in your default browser
 - **Launch at login** — Start automatically when you log in
 
 ## Requirements
@@ -35,13 +40,13 @@ Features:
 
 ```bash
 brew tap nickustinov/tap
-brew install --cask itsytack
+brew install --cask itsypin
 ```
 
 ### Manual
 
-1. Download `Itsytack-x.x.x.dmg` from Releases
-2. Open the DMG and drag Itsytack to Applications
+1. Download `Itsypin-x.x.x.dmg` from Releases
+2. Open the DMG and drag Itsypin to Applications
 3. Launch from Applications — it appears as an icon in your menu bar
 
 ## Usage
@@ -52,8 +57,7 @@ brew install --cask itsytack
 
 ### Default sites
 
-- **Claude** — menu bar, triple-tap Option (⌥⌥⌥)
-- **ChatGPT** — floating bubble, triple-tap Command (⌘⌘⌘)
+- **Claude** — menu bar, triple-tap Command (⌘⌘⌘)
 
 ### Adding sites
 
@@ -74,22 +78,22 @@ xcodegen generate
 # Build, sign, and package the DMG
 ./scripts/build-release.sh
 
-# Output: dist/Itsytack.app and dist/Itsytack-x.x.x.dmg
+# Output: dist/Itsypin.app and dist/Itsypin-x.x.x.dmg
 ```
 
-For development, open `itsytack.xcodeproj` and run the `itsytack` scheme.
+For development, open `itsypin.xcodeproj` and run the `itsypin` scheme.
 
 ### App Store build
 
-The `itsytack-appstore` scheme uses the `Release-AppStore` configuration with
-sandboxed entitlements (`Sources/itsytack.entitlements`). Select it in Xcode,
+The `itsypin-appstore` scheme uses the `Release-AppStore` configuration with
+sandboxed entitlements (`Sources/itsypin.entitlements`). Select it in Xcode,
 then Product > Archive and upload via the Organizer.
 
 ## Architecture
 
 The Xcode project is generated from `project.yml` with XcodeGen. Direct
-(DMG) builds use `Sources/itsytack-direct.entitlements`; App Store builds
-use the sandboxed `Sources/itsytack.entitlements`.
+(DMG) builds use `Sources/itsypin-direct.entitlements`; App Store builds
+use the sandboxed `Sources/itsypin.entitlements`.
 
 ```
 project.yml                 # XcodeGen project definition (single version source)

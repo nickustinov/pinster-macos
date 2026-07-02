@@ -1,5 +1,6 @@
 import SwiftUI
 import Carbon.HIToolbox
+import UniformTypeIdentifiers
 
 struct SettingsView: View {
     @ObservedObject private var store = SettingsStore.shared
@@ -20,6 +21,19 @@ struct SettingsView: View {
                     }
                     Toggle("Show page previews", isOn: $store.showBubblePreviews)
                         .help("When off, bubbles show site favicon instead")
+                    Toggle("Show bubble background", isOn: $store.showBubbleBackground)
+                        .help("When off, only the site icon is visible")
+                    Slider(value: $store.bubbleSize, in: 40...100, step: 4) {
+                        Text("Bubble size")
+                    }
+                    .disabled(!store.showBubbleBackground)
+                    Picker("Unload pages after", selection: $store.bubbleUnloadMinutes) {
+                        Text("Never").tag(0)
+                        Text("5 minutes").tag(5)
+                        Text("10 minutes").tag(10)
+                        Text("30 minutes").tag(30)
+                    }
+                    .help("Frees memory by unloading collapsed bubble pages after inactivity")
                 }
 
                 Section {
@@ -83,7 +97,7 @@ struct SettingsView: View {
             Divider()
 
             HStack {
-                Text("Itsytack \(appVersion)")
+                Text("Itsypin \(appVersion)")
                     .foregroundStyle(.secondary)
                 Text("·")
                     .foregroundStyle(.tertiary)
@@ -131,6 +145,8 @@ struct AddEditSiteView: View {
     @State private var shortcutKeys: ShortcutKeys?
     @State private var useMobileUserAgent: Bool = false
     @State private var displayMode: DisplayMode = .menuBar
+    @State private var customIcon: Data?
+    @State private var hotCorner: HotCorner?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -146,8 +162,33 @@ struct AddEditSiteView: View {
                 }
                 .pickerStyle(.segmented)
 
+                if displayMode == .bubble {
+                    Picker("Reveal", selection: $hotCorner) {
+                        Text("Always visible").tag(HotCorner?.none)
+                        Text("Hot corner bottom left").tag(HotCorner?.some(.bottomLeft))
+                        Text("Hot corner bottom right").tag(HotCorner?.some(.bottomRight))
+                    }
+                    .help("Hot corner bubbles stay hidden until the cursor touches the corner")
+                }
+
                 Toggle("Use mobile view", isOn: $useMobileUserAgent)
                     .help("Uses iPhone user agent for compact mobile layouts")
+
+                HStack {
+                    Text("Custom icon")
+                    Spacer()
+                    if let customIcon, let image = NSImage(data: customIcon) {
+                        Image(nsImage: image)
+                            .resizable()
+                            .frame(width: 20, height: 20)
+                        Button("Remove") {
+                            self.customIcon = nil
+                        }
+                    }
+                    Button(customIcon == nil ? "Choose..." : "Change...") {
+                        pickCustomIcon()
+                    }
+                }
             }
             .formStyle(.grouped)
 
@@ -170,7 +211,7 @@ struct AddEditSiteView: View {
             }
             .padding()
         }
-        .frame(width: 400, height: 300)
+        .frame(width: 400, height: 380)
         .onAppear {
             if let site = site {
                 name = site.name
@@ -179,7 +220,19 @@ struct AddEditSiteView: View {
                 shortcutKeys = site.shortcutKeys
                 useMobileUserAgent = site.useMobileUserAgent
                 displayMode = site.displayMode
+                customIcon = site.customIcon
+                hotCorner = site.hotCorner
             }
+        }
+    }
+
+    private func pickCustomIcon() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.png, .jpeg, .tiff, .gif, .icns, .image]
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        if panel.runModal() == .OK, let url = panel.url, let image = NSImage(contentsOf: url) {
+            customIcon = image.pngData(maxDimension: 64)
         }
     }
 
@@ -194,7 +247,9 @@ struct AddEditSiteView: View {
             windowWidth: site?.windowWidth,
             windowHeight: site?.windowHeight,
             displayMode: displayMode,
-            bubblePosition: site?.bubblePosition
+            bubblePosition: site?.bubblePosition,
+            customIcon: customIcon,
+            hotCorner: displayMode == .bubble ? hotCorner : nil
         )
         onSave(newSite)
     }
