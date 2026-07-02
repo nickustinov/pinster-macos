@@ -13,7 +13,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     // MARK: - App Lifecycle
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        setAppIcon()
         setupStatusItem()
         setupPopover()
         setupMainMenu()
@@ -30,27 +29,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             name: .pinnedSitesChanged,
             object: nil
         )
-    }
-
-    private func setAppIcon() {
-        // Prefer bundled icon (release builds), fall back to Assets for dev runs.
-        if let bundlePath = Bundle.main.path(forResource: "AppIcon", ofType: "icns"),
-           let image = NSImage(contentsOfFile: bundlePath) {
-            NSApp.applicationIconImage = image
-            return
-        }
-
-        let devPaths = [
-            FileManager.default.currentDirectoryPath + "/Assets/AppIcon.icns",
-            (ProcessInfo.processInfo.environment["PWD"] ?? "") + "/Assets/AppIcon.icns"
-        ]
-
-        for path in devPaths {
-            if let image = NSImage(contentsOfFile: path) {
-                NSApp.applicationIconImage = image
-                return
-            }
-        }
     }
 
     @objc private func sitesChanged() {
@@ -73,7 +51,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     }
 
     private func createMenuBarIcon() -> NSImage {
-        // Try to load from bundle first (for release builds)
         if let bundlePath = Bundle.main.path(forResource: "MenuBarIcon", ofType: "png"),
            let image = NSImage(contentsOfFile: bundlePath) {
             image.isTemplate = true
@@ -81,21 +58,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             return image
         }
 
-        // Fallback: load from Assets folder (for development)
-        let devPaths = [
-            FileManager.default.currentDirectoryPath + "/Assets/MenuBarIcon.png",
-            (ProcessInfo.processInfo.environment["PWD"] ?? "") + "/Assets/MenuBarIcon.png"
-        ]
-
-        for path in devPaths {
-            if let image = NSImage(contentsOfFile: path) {
-                image.isTemplate = true
-                image.size = NSSize(width: 18, height: 18)
-                return image
-            }
-        }
-
-        // Final fallback: simple pin shape
+        // Fallback: simple pin shape
         let size = NSSize(width: 18, height: 18)
         let image = NSImage(size: size, flipped: false) { rect in
             let path = NSBezierPath()
@@ -138,7 +101,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
 
         menu.addItem(NSMenuItem(title: "Settings...", action: #selector(openSettings), keyEquivalent: ""))
         menu.addItem(.separator())
-        menu.addItem(NSMenuItem(title: "Quit Pinster", action: #selector(NSApplication.terminate(_:)), keyEquivalent: ""))
+        menu.addItem(NSMenuItem(title: "Quit Itsytack", action: #selector(NSApplication.terminate(_:)), keyEquivalent: ""))
 
         statusItem.menu = menu
     }
@@ -162,9 +125,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             settingsWindow = panel
         }
 
-        // Allow keyboard input without showing dock icon
-        settingsWindow?.perform(Selector(("_setPreventsActivation:")), with: NSNumber(value: false))
-
         setupMainMenu()
         popover.performClose(nil)
         settingsWindow?.level = .floating
@@ -180,7 +140,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
 
         // App menu
         let appMenu = NSMenu()
-        appMenu.addItem(NSMenuItem(title: "Quit Pinster", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
+        appMenu.addItem(NSMenuItem(title: "Quit Itsytack", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
         let appMenuItem = NSMenuItem()
         appMenuItem.submenu = appMenu
         mainMenu.addItem(appMenuItem)

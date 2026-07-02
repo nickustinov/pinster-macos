@@ -1,16 +1,16 @@
-# Pinster
+# Itsytack
 
 A lightweight macOS menu bar application for quick access to pinned websites.
 
-![Pinster demo](Assets/demo-v3.gif)
+![Itsytack demo](Assets/demo-v3.gif)
 
 ## Download
 
-Download the latest release from [Releases](https://github.com/nickustinov/pinster-macos/releases).
+Download the latest release from [Releases](https://github.com/nickustinov/itsytack-macos/releases).
 
 ## What it does
 
-Pinster lives in your menu bar and lets you open frequently used websites in floating popover windows or as floating bubbles on the screen edge. No need to switch to a browser — just click the menu bar icon, hover over a bubble, or use a keyboard shortcut.
+Itsytack lives in your menu bar and lets you open frequently used websites in floating popover windows or as floating bubbles on the screen edge. No need to switch to a browser — just click the menu bar icon, hover over a bubble, or use a keyboard shortcut.
 
 Features:
 - **Menu bar integration** — Access sites from the status bar dropdown
@@ -34,14 +34,14 @@ Features:
 ### Homebrew
 
 ```bash
-brew tap nickustinov/pinster
-brew install --cask pinster
+brew tap nickustinov/tap
+brew install --cask itsytack
 ```
 
 ### Manual
 
-1. Download `Pinster-x.x.x.dmg` from Releases
-2. Open the DMG and drag Pinster to Applications
+1. Download `Itsytack-x.x.x.dmg` from Releases
+2. Open the DMG and drag Itsytack to Applications
 3. Launch from Applications — it appears as an icon in your menu bar
 
 ## Usage
@@ -65,20 +65,35 @@ brew install --cask pinster
 
 ## Building from source
 
+Requirements: Xcode 16+ and [XcodeGen](https://github.com/yonaskolb/XcodeGen) (`brew install xcodegen`).
+
 ```bash
-# Build release
+# Generate the Xcode project
+xcodegen generate
+
+# Build, sign, and package the DMG
 ./scripts/build-release.sh
 
-# Output: dist/Pinster.app and dist/Pinster-x.x.x.dmg
+# Output: dist/Itsytack.app and dist/Itsytack-x.x.x.dmg
 ```
 
-Requirements for building:
-- Swift 5.9 or later
-- Xcode Command Line Tools
+For development, open `itsytack.xcodeproj` and run the `itsytack` scheme.
+
+### App Store build
+
+The `itsytack-appstore` scheme uses the `Release-AppStore` configuration with
+sandboxed entitlements (`Sources/itsytack.entitlements`). Select it in Xcode,
+then Product > Archive and upload via the Organizer.
 
 ## Architecture
 
+The Xcode project is generated from `project.yml` with XcodeGen. Direct
+(DMG) builds use `Sources/itsytack-direct.entitlements`; App Store builds
+use the sandboxed `Sources/itsytack.entitlements`.
+
 ```
+project.yml                 # XcodeGen project definition (single version source)
+Assets/                     # App icon asset catalog and menu bar icon
 Sources/
 ├── main.swift              # App entry point
 ├── AppDelegate.swift       # Status bar, menu, popover management
@@ -86,6 +101,7 @@ Sources/
 ├── SettingsStore.swift     # UserDefaults persistence
 ├── SettingsView.swift      # SwiftUI settings interface
 ├── WebViewController.swift # WKWebView with resize handle
+├── FaviconLoader.swift     # Shared favicon download with fallbacks
 ├── HotkeyManager.swift     # Global hotkey registration (Carbon Events)
 ├── BubbleWindow.swift      # Floating bubble window
 ├── BubbleContentView.swift # Bubble content (favicon/preview)

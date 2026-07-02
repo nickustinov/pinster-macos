@@ -83,7 +83,7 @@ struct SettingsView: View {
             Divider()
 
             HStack {
-                Text("Pinster \(appVersion)")
+                Text("Itsytack \(appVersion)")
                     .foregroundStyle(.secondary)
                 Text("·")
                     .foregroundStyle(.tertiary)

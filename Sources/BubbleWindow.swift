@@ -36,11 +36,6 @@ class BubbleWindow: NSPanel {
     override var canBecomeMain: Bool { true }
     override var acceptsFirstResponder: Bool { true }
 
-    /// Use private API to control whether panel prevents app activation
-    private func setPreventsActivation(_ prevents: Bool) {
-        perform(Selector(("_setPreventsActivation:")), with: NSNumber(value: prevents))
-    }
-
     override func becomeKey() {
         super.becomeKey()
         // When window becomes key, focus the webview
@@ -110,38 +105,22 @@ class BubbleWindow: NSPanel {
         guard let url = URL(string: site.url),
               let host = url.host else { return }
 
+        let scheme = url.scheme ?? "https"
+
         // Try common favicon locations
         let faviconURLs = [
-            URL(string: "\(url.scheme ?? "https")://\(host)/favicon.ico"),
-            URL(string: "\(url.scheme ?? "https")://\(host)/apple-touch-icon.png"),
+            URL(string: "\(scheme)://\(host)/favicon.ico"),
+            URL(string: "\(scheme)://\(host)/apple-touch-icon.png"),
             URL(string: "https://www.google.com/s2/favicons?domain=\(host)&sz=64")
         ].compactMap { $0 }
 
-        tryFetchFavicon(from: faviconURLs, index: 0)
-    }
-
-    private func tryFetchFavicon(from urls: [URL], index: Int) {
-        guard index < urls.count else { return }
-
-        URLSession.shared.dataTask(with: urls[index]) { [weak self] data, response, _ in
-            if let data = data,
-               let httpResponse = response as? HTTPURLResponse,
-               httpResponse.statusCode == 200,
-               let image = NSImage(data: data) {
-                DispatchQueue.main.async {
-                    image.size = NSSize(width: 32, height: 32)
-                    self?.faviconImage = image
-                    if self?.isExpanded == false {
-                        self?.bubbleContentView.showFavicon(image)
-                    }
-                }
-            } else {
-                // Try next URL
-                DispatchQueue.main.async {
-                    self?.tryFetchFavicon(from: urls, index: index + 1)
-                }
+        FaviconLoader.fetch(from: faviconURLs, size: 32) { [weak self] image in
+            guard let self, let image else { return }
+            self.faviconImage = image
+            if !self.isExpanded {
+                self.bubbleContentView.showFavicon(image)
             }
-        }.resume()
+        }
     }
 
     deinit {
@@ -506,10 +485,7 @@ class BubbleWindow: NSPanel {
     }
 
     private func activateAndFocus() {
-        // Allow activation temporarily to receive keyboard events
-        setPreventsActivation(false)
-
-        // Activate app and make window key
+        // Activate app and make window key (the app is LSUIElement, so no dock icon appears)
         NSRunningApplication.current.activate(options: [.activateIgnoringOtherApps, .activateAllWindows])
         NSApp.activate(ignoringOtherApps: true)
         makeKeyAndOrderFront(nil)
@@ -555,17 +531,13 @@ class BubbleWindow: NSPanel {
         stopMonitors()
         removeResizeHandles()
 
-        // Re-enable prevents activation so dock icon doesn't show
-        setPreventsActivation(true)
-
         takeSnapshot { [weak self] in
             self?.performCollapse()
         }
     }
 
     private func takeSnapshot(completion: @escaping () -> Void) {
-        guard let webViewController = webViewController,
-              let webView = webViewController.view.subviews.first(where: { $0 is WKWebView }) as? WKWebView else {
+        guard let webView = webViewController?.getWebView() else {
             completion()
             return
         }

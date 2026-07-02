@@ -1,7 +1,7 @@
 import Cocoa
 
 let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "unknown"
-let githubURL = "https://github.com/nickustinov/pinster-macos"
+let githubURL = "https://github.com/nickustinov/itsytack-macos"
 
 struct PinnedSite: Identifiable, Codable, Equatable {
     let id: UUID

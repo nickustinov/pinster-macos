@@ -3,7 +3,9 @@
 build/
 .swiftpm/
 *.xcodeproj/
+!*.xcodeproj/project.pbxproj
+*.xcodeproj/xcuserdata/
 *.xcworkspace/
+xcuserdata/
 DerivedData/
 dist/
-Assets/AppIcon.iconset/

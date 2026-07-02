@@ -22,9 +22,13 @@ class SettingsStore: ObservableObject {
     @Published var pinnedSites: [PinnedSite] = [] {
         didSet {
             saveSites()
-            NotificationCenter.default.post(name: .pinnedSitesChanged, object: nil)
+            if !suppressChangeNotification {
+                NotificationCenter.default.post(name: .pinnedSitesChanged, object: nil)
+            }
         }
     }
+
+    private var suppressChangeNotification = false
 
     @Published var preferredBubbleEdge: BubbleEdge = .right {
         didSet {
@@ -73,11 +77,18 @@ class SettingsStore: ObservableObject {
     }
 
     func syncLaunchAtLoginStatus() {
-        launchAtLogin = SMAppService.mainApp.status == .enabled
+        let enabled = SMAppService.mainApp.status == .enabled
+        if launchAtLogin != enabled {
+            launchAtLogin = enabled
+        }
     }
 
     private func loadSites() {
-        guard let data = UserDefaults.standard.data(forKey: sitesKey),
+        // ponytail: falls back to the pre-rename com.pinster.app domain once;
+        // the didSet save then persists sites under the new bundle id
+        let data = UserDefaults.standard.data(forKey: sitesKey)
+            ?? UserDefaults(suiteName: "com.pinster.app")?.data(forKey: sitesKey)
+        guard let data,
               let sites = try? JSONDecoder().decode([PinnedSite].self, from: data) else {
             return
         }
@@ -104,7 +115,9 @@ class SettingsStore: ObservableObject {
 
     func updateBubblePosition(id: UUID, position: CGFloat) {
         if let index = pinnedSites.firstIndex(where: { $0.id == id }) {
-            pinnedSites[index].bubblePosition = position
+            withoutChangeNotification {
+                pinnedSites[index].bubblePosition = position
+            }
         }
     }
 
@@ -124,8 +137,19 @@ class SettingsStore: ObservableObject {
 
     func updateSiteSize(id: UUID, size: NSSize) {
         if let index = pinnedSites.firstIndex(where: { $0.id == id }) {
-            pinnedSites[index].windowWidth = size.width
-            pinnedSites[index].windowHeight = size.height
+            withoutChangeNotification {
+                pinnedSites[index].windowWidth = size.width
+                pinnedSites[index].windowHeight = size.height
+            }
         }
+    }
+
+    // Geometry updates fire on every mouse tick during drags and resizes;
+    // posting pinnedSitesChanged for them would rebuild menus, re-register
+    // hotkeys, and reposition bubbles mid-gesture.
+    private func withoutChangeNotification(_ mutate: () -> Void) {
+        suppressChangeNotification = true
+        mutate()
+        suppressChangeNotification = false
     }
 }

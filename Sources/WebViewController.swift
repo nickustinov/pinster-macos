@@ -107,14 +107,7 @@ class ResizeHandleView: NSView {
 
     override func resetCursorRects() {
         super.resetCursorRects()
-        let cursor: NSCursor
-        switch corner {
-        case .bottomLeft, .topRight:
-            cursor = NSCursor(image: NSCursor.crosshair.image, hotSpot: NSPoint(x: 8, y: 8))
-        case .bottomRight, .topLeft:
-            cursor = NSCursor(image: NSCursor.crosshair.image, hotSpot: NSPoint(x: 8, y: 8))
-        }
-        addCursorRect(bounds, cursor: cursor)
+        addCursorRect(bounds, cursor: NSCursor(image: NSCursor.crosshair.image, hotSpot: NSPoint(x: 8, y: 8)))
     }
 
     override func scrollWheel(with event: NSEvent) {
@@ -132,7 +125,8 @@ class WebViewController: NSViewController, WKUIDelegate, WKNavigationDelegate {
     private var resizeHandle: ResizeHandleView!
     private var authWindow: NSWindow?
     private var authWebView: WKWebView?
-    private var currentHost: String?
+    private var currentLoadedKey: String?
+    private var currentSiteHost: String?
 
     var onResize: ((NSSize) -> Void)?
     var onFaviconLoaded: ((NSImage?) -> Void)?
@@ -255,20 +249,20 @@ class WebViewController: NSViewController, WKUIDelegate, WKNavigationDelegate {
         // Ensure view is loaded
         _ = self.view
 
-        let newHost = url.host
-
-        // Update user agent
         webView.customUserAgent = site.userAgent
 
-        // Only reload if switching to a different site
-        if currentHost == newHost {
+        // Only reload when the configured URL or user agent actually changed —
+        // comparing hosts alone broke switching between sites on the same host
+        let newKey = "\(site.url)|\(site.userAgent)"
+        if currentLoadedKey == newKey {
             // Still fetch favicon for already-loaded site
             fetchFavicon()
             return
         }
 
         showLoading()
-        currentHost = newHost
+        currentLoadedKey = newKey
+        currentSiteHost = url.host
         webView.load(URLRequest(url: url))
     }
 
@@ -309,9 +303,6 @@ class WebViewController: NSViewController, WKUIDelegate, WKNavigationDelegate {
             appDelegate.closePopover()
         }
 
-        // Allow keyboard input without showing dock icon
-        panel.perform(Selector(("_setPreventsActivation:")), with: NSNumber(value: false))
-
         panel.level = .floating
         panel.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
@@ -351,12 +342,17 @@ class WebViewController: NSViewController, WKUIDelegate, WKNavigationDelegate {
         if webView == self.webView {
             hideLoading()
             fetchFavicon()
-            detectThemeColor()
+            if onThemeColorDetected != nil {
+                detectThemeColor()
+            }
         }
 
+        // Sign-in popups usually end their flow back on the pinned site's domain;
+        // close the auth window and reload the main page at that point
         if webView == authWebView,
-           let url = webView.url,
-           url.host?.contains("claude.ai") == true || url.host?.contains("anthropic") == true {
+           let popupHost = webView.url?.host,
+           let siteHost = currentSiteHost,
+           popupHost == siteHost || popupHost.hasSuffix(".\(siteHost)") {
             closeAuthWindow()
             self.webView.reload()
         }
@@ -422,24 +418,16 @@ class WebViewController: NSViewController, WKUIDelegate, WKNavigationDelegate {
         })()
         """
 
-        webView.evaluateJavaScript(js) { [weak self] result, error in
+        webView.evaluateJavaScript(js) { [weak self] result, _ in
             guard let urlString = result as? String,
                   let url = URL(string: urlString) else {
                 self?.onFaviconLoaded?(nil)
                 return
             }
 
-            URLSession.shared.dataTask(with: url) { data, response, error in
-                DispatchQueue.main.async {
-                    if let data = data, let image = NSImage(data: data) {
-                        image.size = NSSize(width: 18, height: 18)
-                        image.isTemplate = false
-                        self?.onFaviconLoaded?(image)
-                    } else {
-                        self?.onFaviconLoaded?(nil)
-                    }
-                }
-            }.resume()
+            FaviconLoader.fetch(from: [url], size: 18) { image in
+                self?.onFaviconLoaded?(image)
+            }
         }
     }
 }

@@ -101,7 +101,6 @@ class BubbleManager {
             expanded.collapse()
         }
         expandedBubble = bubble
-        // Note: activation is now handled per-window via _setPreventsActivation
     }
 
     func expandBubble(for siteId: UUID) {
@@ -129,29 +128,6 @@ class BubbleManager {
     func bubbleDidCollapse(_ bubble: BubbleWindow) {
         if expandedBubble === bubble {
             expandedBubble = nil
-        }
-        // Note: activation is now handled per-window via _setPreventsActivation
-    }
-
-    private func setAppIcon() {
-        // Prefer bundled icon (release builds)
-        if let bundlePath = Bundle.main.path(forResource: "AppIcon", ofType: "icns"),
-           let image = NSImage(contentsOfFile: bundlePath) {
-            NSApp.applicationIconImage = image
-            return
-        }
-
-        // Fallback: load from Assets folder (for development)
-        let devPaths = [
-            FileManager.default.currentDirectoryPath + "/Assets/AppIcon.icns",
-            (ProcessInfo.processInfo.environment["PWD"] ?? "") + "/Assets/AppIcon.icns"
-        ]
-
-        for path in devPaths {
-            if let image = NSImage(contentsOfFile: path) {
-                NSApp.applicationIconImage = image
-                return
-            }
         }
     }
 }

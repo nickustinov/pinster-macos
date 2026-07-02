@@ -2,129 +2,85 @@
 set -e
 
 # Configuration
-APP_NAME="Pinster"
-BUNDLE_ID="com.pinster.app"
-TEAM_ID="R892A93W42"
-VERSION="1.2.2"
+APP_NAME="Itsytack"
+VERSION=$(grep 'MARKETING_VERSION:' project.yml | sed 's/.*: *"\(.*\)"/\1/')
+SIGNING_IDENTITY="Developer ID Application: Nikolajs Ustinovs (R892A93W42)"
 
 # Paths
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
-BUILD_DIR="$PROJECT_DIR/.build/release"
-APP_BUNDLE="$PROJECT_DIR/dist/$APP_NAME.app"
-DMG_PATH="$PROJECT_DIR/dist/$APP_NAME-$VERSION.dmg"
+DIST_DIR="$PROJECT_DIR/dist"
+ARCHIVE_PATH="$DIST_DIR/itsytack.xcarchive"
+APP_BUNDLE="$DIST_DIR/$APP_NAME.app"
+DMG_PATH="$DIST_DIR/$APP_NAME-$VERSION.dmg"
 
 cd "$PROJECT_DIR"
+mkdir -p "$DIST_DIR"
 
-echo "==> Building release binary for arm64..."
-swift build -c release --arch arm64
+echo "==> Version: $VERSION"
 
-echo "==> Building release binary for x86_64..."
-swift build -c release --arch x86_64
+# Generate Xcode project from project.yml
+echo "==> Generating Xcode project..."
+xcodegen generate
 
-echo "==> Creating universal binary..."
-mkdir -p "$BUILD_DIR"
-lipo -create \
-    "$PROJECT_DIR/.build/arm64-apple-macosx/release/pinster" \
-    "$PROJECT_DIR/.build/x86_64-apple-macosx/release/pinster" \
-    -output "$BUILD_DIR/pinster"
+# Archive without signing, then sign manually with Developer ID
+echo "==> Archiving..."
+xcodebuild -scheme itsytack -configuration Release \
+    -destination 'generic/platform=macOS' \
+    -archivePath "$ARCHIVE_PATH" \
+    archive \
+    ONLY_ACTIVE_ARCH=NO \
+    CODE_SIGN_IDENTITY="" \
+    CODE_SIGNING_REQUIRED=NO \
+    CODE_SIGNING_ALLOWED=NO \
+    -quiet
 
-echo "==> Creating app bundle..."
-rm -rf dist
-mkdir -p "$APP_BUNDLE/Contents/MacOS"
-mkdir -p "$APP_BUNDLE/Contents/Resources"
+ARCHIVE_APP="$ARCHIVE_PATH/Products/Applications/$APP_NAME.app"
 
-# Copy binary
-cp "$BUILD_DIR/pinster" "$APP_BUNDLE/Contents/MacOS/$APP_NAME"
+echo "==> Checking architectures..."
+lipo -info "$ARCHIVE_APP/Contents/MacOS/$APP_NAME"
 
-# Copy icons
-cp "Assets/AppIcon.icns" "$APP_BUNDLE/Contents/Resources/"
-cp "Assets/MenuBarIcon.png" "$APP_BUNDLE/Contents/Resources/"
+echo "==> Signing with Developer ID..."
+codesign --force --options runtime --timestamp --sign "$SIGNING_IDENTITY" \
+    --entitlements "$PROJECT_DIR/Sources/itsytack-direct.entitlements" \
+    "$ARCHIVE_APP"
 
-# Create Info.plist
-cat > "$APP_BUNDLE/Contents/Info.plist" << EOF
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>CFBundleDevelopmentRegion</key>
-    <string>en</string>
-    <key>CFBundleExecutable</key>
-    <string>$APP_NAME</string>
-    <key>CFBundleIconFile</key>
-    <string>AppIcon</string>
-    <key>CFBundleIdentifier</key>
-    <string>$BUNDLE_ID</string>
-    <key>CFBundleInfoDictionaryVersion</key>
-    <string>6.0</string>
-    <key>CFBundleName</key>
-    <string>$APP_NAME</string>
-    <key>CFBundlePackageType</key>
-    <string>APPL</string>
-    <key>CFBundleShortVersionString</key>
-    <string>$VERSION</string>
-    <key>CFBundleVersion</key>
-    <string>$VERSION</string>
-    <key>LSMinimumSystemVersion</key>
-    <string>13.0</string>
-    <key>LSUIElement</key>
-    <true/>
-    <key>NSHighResolutionCapable</key>
-    <true/>
-    <key>NSAppTransportSecurity</key>
-    <dict>
-        <key>NSAllowsArbitraryLoads</key>
-        <true/>
-    </dict>
-</dict>
-</plist>
-EOF
+echo "==> Extracting app bundle..."
+rm -rf "$APP_BUNDLE"
+cp -R "$ARCHIVE_APP" "$APP_BUNDLE"
+rm -rf "$ARCHIVE_PATH"
 
-# Check if we should sign
-if security find-identity -v -p codesigning | grep -q "Developer ID Application"; then
-    SIGNING_IDENTITY="$(security find-identity -v -p codesigning | grep "Developer ID Application" | head -1 | sed 's/.*"\(.*\)".*/\1/')"
+echo "==> Verifying signature..."
+codesign --verify --deep --strict --verbose=1 "$APP_BUNDLE"
 
-    echo "==> Signing app with: $SIGNING_IDENTITY"
-    codesign --force --options runtime --sign "$SIGNING_IDENTITY" \
-        --entitlements "$PROJECT_DIR/Sources/pinster.entitlements" \
-        "$APP_BUNDLE"
+# Create DMG
+echo "==> Creating DMG..."
+rm -f "$DMG_PATH"
+DMG_STAGING="$DIST_DIR/dmg-staging"
+rm -rf "$DMG_STAGING"
+mkdir -p "$DMG_STAGING"
+cp -R "$APP_BUNDLE" "$DMG_STAGING/"
+ln -s /Applications "$DMG_STAGING/Applications"
+hdiutil create -volname "$APP_NAME" -srcfolder "$DMG_STAGING" -ov -format UDZO "$DMG_PATH"
+rm -rf "$DMG_STAGING"
 
-    echo "==> Creating DMG..."
-    DMG_STAGING="$PROJECT_DIR/dist/dmg-staging"
-    rm -rf "$DMG_STAGING"
-    mkdir -p "$DMG_STAGING"
-    cp -R "$APP_BUNDLE" "$DMG_STAGING/"
-    ln -s /Applications "$DMG_STAGING/Applications"
-    hdiutil create -volname "$APP_NAME" -srcfolder "$DMG_STAGING" -ov -format UDZO "$DMG_PATH"
-    rm -rf "$DMG_STAGING"
+echo "==> Signing DMG..."
+codesign --force --sign "$SIGNING_IDENTITY" "$DMG_PATH"
 
-    echo "==> Signing DMG..."
-    codesign --force --sign "$SIGNING_IDENTITY" "$DMG_PATH"
+SHA256=$(shasum -a 256 "$DMG_PATH" | cut -d' ' -f1)
 
-    echo ""
-    echo "==> Build complete!"
-    echo "    App: $APP_BUNDLE"
-    echo "    DMG: $DMG_PATH"
-    echo ""
-    echo "To notarize, run:"
-    echo "    xcrun notarytool submit \"$DMG_PATH\" --apple-id YOUR_APPLE_ID --team-id $TEAM_ID --password APP_SPECIFIC_PASSWORD --wait"
-    echo "    xcrun stapler staple \"$DMG_PATH\""
-else
-    echo "==> No Developer ID certificate found, skipping signing..."
-
-    echo "==> Creating unsigned DMG..."
-    DMG_STAGING="$PROJECT_DIR/dist/dmg-staging"
-    rm -rf "$DMG_STAGING"
-    mkdir -p "$DMG_STAGING"
-    cp -R "$APP_BUNDLE" "$DMG_STAGING/"
-    ln -s /Applications "$DMG_STAGING/Applications"
-    hdiutil create -volname "$APP_NAME" -srcfolder "$DMG_STAGING" -ov -format UDZO "$DMG_PATH"
-    rm -rf "$DMG_STAGING"
-
-    echo ""
-    echo "==> Build complete (UNSIGNED)!"
-    echo "    App: $APP_BUNDLE"
-    echo "    DMG: $DMG_PATH"
-    echo ""
-    echo "NOTE: To distribute, you need a Developer ID certificate from developer.apple.com"
-fi
+echo ""
+echo "==> Build complete!"
+echo "    App: $APP_BUNDLE"
+echo "    DMG: $DMG_PATH"
+echo "    SHA256: $SHA256"
+echo ""
+echo "To notarize, run:"
+echo "    xcrun notarytool submit \"$DMG_PATH\" --apple-id <APPLE_ID> --team-id R892A93W42 --password <APP_SPECIFIC_PASSWORD> --wait"
+echo "    xcrun stapler staple \"$DMG_PATH\""
+echo ""
+echo "To create a GitHub release:"
+echo "    gh release create v$VERSION \"$DMG_PATH\" --title \"v$VERSION\" --generate-notes"
+echo ""
+echo "For the App Store: open the project in Xcode, select the itsytack-appstore"
+echo "scheme, then Product > Archive and upload via the Organizer."
