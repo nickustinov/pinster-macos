@@ -1,5 +1,11 @@
 # Itsypin
 
+[![Downloads](https://img.shields.io/github/downloads/nickustinov/itsypin-macos/total.svg)](https://github.com/nickustinov/itsypin-macos/releases)
+[![Release](https://img.shields.io/github/v/release/nickustinov/itsypin-macos)](https://github.com/nickustinov/itsypin-macos/releases/latest)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Swift 5.9](https://img.shields.io/badge/swift-5.9-orange.svg)](https://swift.org)
+[![macOS 13+](https://img.shields.io/badge/macOS-13%2B-brightgreen.svg)](https://www.apple.com/macos/)
+
 A lightweight macOS menu bar application for quick access to pinned websites.
 
 ![Itsypin demo](Assets/demo-v3.gif)
